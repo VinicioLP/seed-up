@@ -23,36 +23,121 @@ const saoPauloRegion: GardenRegion = {
   longitudeDelta: 0.08,
 };
 
-const weatherStats = [
-  { icon: 'rainy-outline', label: 'Chuva', value: '12%' },
-  { icon: 'water-outline', label: 'Umidade', value: '65%' },
-  { icon: 'reorder-three-outline', label: 'Vento', value: '8 km/h' },
-] as const;
+type WeatherInfo = {
+  description: string;
+  temperature: number;
+  humidity: number;
+  windSpeed: number;
+  iconUrl: string;
+};
+
+type OpenWeatherResponse = {
+  temperature?: number;
+  description?: string;
+  humidity?: number;
+  windSpeed?: number;
+  icon?: string;
+  iconUrl?: string;
+};
 
 export default function Home() {
   const { colors, isDark, toggleTheme } = useAppTheme();
   const params = useLocalSearchParams<{ latitude?: string; longitude?: string }>();
   const [userRegion, setUserRegion] = useState<GardenRegion | null>(null);
-  const [locationStatus, setLocationStatus] = useState('Localizando...');
+  const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(null);
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
 
-  const activeRegion = userRegion ?? saoPauloRegion;
+  const selectedLatitude = Number(params.latitude);
+  const selectedLongitude = Number(params.longitude);
+  const hasSelectedPickerRegion =
+    Number.isFinite(selectedLatitude) && Number.isFinite(selectedLongitude);
+  const weatherRegion = hasSelectedPickerRegion
+    ? {
+        latitude: selectedLatitude,
+        longitude: selectedLongitude,
+      }
+    : saoPauloRegion;
+  const weatherLocationLabel = hasSelectedPickerRegion
+    ? 'Localizacao selecionada'
+    : 'Sao Paulo padrao';
+  const activeWeatherStats = weatherInfo
+    ? [
+        { icon: 'rainy-outline', label: 'Clima', value: weatherInfo.description },
+        { icon: 'water-outline', label: 'Umidade', value: `${weatherInfo.humidity}%` },
+        { icon: 'reorder-three-outline', label: 'Vento', value: `${Math.round(weatherInfo.windSpeed)} km/h` },
+      ] as const
+    : [
+        { icon: 'rainy-outline', label: 'Clima', value: isWeatherLoading ? 'Carregando' : 'Indisponivel' },
+        { icon: 'water-outline', label: 'Umidade', value: '--' },
+        { icon: 'reorder-three-outline', label: 'Vento', value: '--' },
+      ] as const;
 
   useEffect(() => {
-    const latitude = Number(params.latitude);
-    const longitude = Number(params.longitude);
-
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    if (!hasSelectedPickerRegion) {
       return;
     }
 
     setUserRegion({
-      latitude,
-      longitude,
+      latitude: selectedLatitude,
+      longitude: selectedLongitude,
       latitudeDelta: 0.08,
       longitudeDelta: 0.08,
     });
-    setLocationStatus('Localizacao selecionada');
-  }, [params.latitude, params.longitude]);
+  }, [hasSelectedPickerRegion, selectedLatitude, selectedLongitude]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadWeather() {
+      try {
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+        setIsWeatherLoading(true);
+
+        const response = await fetch(`${apiUrl}/api/weather`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lat: weatherRegion.latitude,
+            lon: weatherRegion.longitude,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erro ao buscar clima: ${response.status}`);
+        }
+
+        const data = (await response.json()) as OpenWeatherResponse;
+
+        if (!isMounted) {
+          return;
+        }
+
+        setWeatherInfo({
+          description: data.description ?? 'Indisponivel',
+          temperature: data.temperature ?? 0,
+          humidity: data.humidity ?? 0,
+          windSpeed: data.windSpeed ?? 0,
+          iconUrl: data.iconUrl ?? '',
+        });
+      } catch (error) {
+        console.error('Erro ao carregar clima', error);
+
+        if (isMounted) {
+          setWeatherInfo(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsWeatherLoading(false);
+        }
+      }
+    }
+
+    loadWeather();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [weatherRegion.latitude, weatherRegion.longitude]);
 
   useEffect(() => {
     let isMounted = true;
@@ -69,7 +154,6 @@ export default function Home() {
       }
 
       if (status !== Location.PermissionStatus.GRANTED) {
-        setLocationStatus('Permissao de localizacao negada');
         return;
       }
 
@@ -87,7 +171,6 @@ export default function Home() {
         latitudeDelta: 0.08,
         longitudeDelta: 0.08,
       });
-      setLocationStatus('Localizacao atual');
     }
 
     loadUserLocation();
@@ -119,24 +202,43 @@ export default function Home() {
         <View style={[styles.weatherCard, { backgroundColor: colors.weather }]}>
           <View style={styles.weatherTop}>
             <View style={styles.weatherCopy}>
-              <Text style={[styles.skyTitle, { color: colors.text }]}>Ceu Limpo</Text>
-              <Text style={[styles.location, { color: colors.muted }]}>
-                <Ionicons name="location-outline" size={13} color={colors.muted} /> {locationStatus}
+              <View style={[styles.weatherBadge, { backgroundColor: colors.surfaceStrong }]}>
+                <Ionicons name="partly-sunny-outline" size={15} color={colors.tint} />
+                <Text style={[styles.weatherBadgeText, { color: colors.tint }]}>Clima agora</Text>
+              </View>
+              <Text style={[styles.skyTitle, { color: colors.text, marginTop: 5 }]}>
+                {weatherInfo?.description ?? (isWeatherLoading ? 'Carregando clima' : 'Clima indisponivel')}
+              </Text>
+              <Text style={[styles.location, { color: colors.muted}]}>
+                <Ionicons name="location-outline" size={13} color={colors.muted} /> {weatherLocationLabel}
               </Text>
               <Text style={[styles.coords, { color: colors.muted }]}>
-                Lat: {activeRegion.latitude.toFixed(4)} / Long: {activeRegion.longitude.toFixed(4)}
+                Lat: {weatherRegion.latitude.toFixed(4)} / Long: {weatherRegion.longitude.toFixed(4)}
               </Text>
             </View>
-            <Text style={[styles.temperature, { color: colors.tint }]}>24°</Text>
+            <View style={[styles.weatherVisual]}>
+              {weatherInfo?.iconUrl ? (
+                <Image
+                  source={{ uri: weatherInfo.iconUrl }}
+                  style={styles.weatherIcon}
+                  contentFit="contain"
+                />
+              ) : (
+                <Ionicons name="cloud-outline" size={48} color={colors.tint} />
+              )}
+              <Text style={[styles.temperature, { color: colors.tint }]}>
+                {weatherInfo ? `${Math.round(weatherInfo.temperature)}°` : '--'}
+              </Text>
+            </View>
           </View>
 
           <View style={[styles.statsPanel, { backgroundColor: colors.surfaceStrong }]}>
-            {weatherStats.map((item, index) => (
+            {activeWeatherStats.map((item, index) => (
               <View
                 key={item.label}
                 style={[
                   styles.statItem,
-                  index < weatherStats.length - 1 && {
+                  index < activeWeatherStats.length - 1 && {
                     borderRightWidth: 1,
                     borderRightColor: colors.border,
                   },
@@ -215,21 +317,51 @@ const styles = StyleSheet.create({
   },
   weatherCard: {
     minHeight: 258,
-    borderRadius: 24,
-    padding: 17,
+    borderRadius: 22,
+    padding: 18,
     justifyContent: 'space-between',
     boxShadow: '0 15px 22px rgba(47, 86, 73, 0.16)',
   },
   weatherTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    alignItems: 'flex-start',
+    gap: 14,
   },
   weatherCopy: {
     flex: 1,
+    minHeight: 126,
+    justifyContent: 'center',
+  },
+  weatherVisual: {
+    width: 112,
+    minHeight: 132,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    paddingVertical: 8,
+  },
+  weatherBadge: {
+    alignSelf: 'flex-start',
+    minHeight: 30,
+    borderRadius: 20,
+    paddingHorizontal: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  weatherBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  weatherIcon: {
+    width: 78,
+    height: 78,
+    marginBottom: -10,
   },
   skyTitle: {
-    fontSize: 28,
+    fontSize: 26,
+    lineHeight: 31,
     fontWeight: '800',
   },
   location: {
