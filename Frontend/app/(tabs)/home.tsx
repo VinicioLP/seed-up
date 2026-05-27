@@ -62,14 +62,14 @@ export default function Home() {
     : 'Sao Paulo padrao';
   const activeWeatherStats = weatherInfo
     ? [
-        { icon: 'rainy-outline', label: 'Clima', value: weatherInfo.description },
         { icon: 'water-outline', label: 'Umidade', value: `${weatherInfo.humidity}%` },
         { icon: 'reorder-three-outline', label: 'Vento', value: `${Math.round(weatherInfo.windSpeed)} km/h` },
+        { icon: 'location-outline', label: 'Origem', value: hasSelectedPickerRegion ? 'Picker' : 'Padrao' },
       ] as const
     : [
-        { icon: 'rainy-outline', label: 'Clima', value: isWeatherLoading ? 'Carregando' : 'Indisponivel' },
         { icon: 'water-outline', label: 'Umidade', value: '--' },
         { icon: 'reorder-three-outline', label: 'Vento', value: '--' },
+        { icon: 'location-outline', label: 'Origem', value: isWeatherLoading ? '...' : 'Padrao' },
       ] as const;
 
   useEffect(() => {
@@ -216,19 +216,25 @@ export default function Home() {
                 Lat: {weatherRegion.latitude.toFixed(4)} / Long: {weatherRegion.longitude.toFixed(4)}
               </Text>
             </View>
-            <View style={[styles.weatherVisual]}>
-              {weatherInfo?.iconUrl ? (
-                <Image
-                  source={{ uri: weatherInfo.iconUrl }}
-                  style={styles.weatherIcon}
-                  contentFit="contain"
-                />
-              ) : (
-                <Ionicons name="cloud-outline" size={48} color={colors.tint} />
-              )}
-              <Text style={[styles.temperature, { color: colors.tint }]}>
-                {weatherInfo ? `${Math.round(weatherInfo.temperature)}°` : '--'}
-              </Text>
+            <View style={[styles.weatherVisual, { backgroundColor: colors.surfaceStrong }]}>
+              <View style={styles.weatherIconFrame}>
+                {weatherInfo?.iconUrl ? (
+                  <Image
+                    source={{ uri: weatherInfo.iconUrl }}
+                    style={styles.weatherIcon}
+                    contentFit="contain"
+                  />
+                ) : (
+                  <Ionicons name="cloud-outline" size={52} color={colors.tint} />
+                )}
+              </View>
+              <View style={styles.temperatureRow}>
+                <Text style={[styles.temperature, { color: colors.tint }]}>
+                  {weatherInfo ? Math.round(weatherInfo.temperature) : '--'}
+                </Text>
+                <Text style={[styles.temperatureUnit, { color: colors.tint }]}>°C</Text>
+              </View>
+              <Text style={[styles.temperatureLabel, { color: colors.muted }]}>temperatura</Text>
             </View>
           </View>
 
@@ -243,9 +249,13 @@ export default function Home() {
                     borderRightColor: colors.border,
                   },
                 ]}>
-                <Ionicons name={item.icon} size={24} color={colors.tint} />
-                <Text style={[styles.statLabel, { color: colors.muted }]}>{item.label}</Text>
-                <Text style={[styles.statValue, { color: colors.textStrong }]}>{item.value}</Text>
+                <View style={[styles.statIconBox, { backgroundColor: colors.iconBox }]}>
+                  <Ionicons name={item.icon} size={19} color={colors.tint} />
+                </View>
+                <View style={styles.statText}>
+                  <Text style={[styles.statLabel, { color: colors.muted }]}>{item.label}</Text>
+                  <Text style={[styles.statValue, { color: colors.textStrong }]}>{item.value}</Text>
+                </View>
               </View>
             ))}
           </View>
@@ -316,10 +326,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   weatherCard: {
-    minHeight: 258,
+    minHeight: 278,
     borderRadius: 22,
-    padding: 18,
-    justifyContent: 'space-between',
+    padding: 16,
+    justifyContent: 'flex-start',
     boxShadow: '0 15px 22px rgba(47, 86, 73, 0.16)',
   },
   weatherTop: {
@@ -330,16 +340,17 @@ const styles = StyleSheet.create({
   },
   weatherCopy: {
     flex: 1,
-    minHeight: 126,
+    minHeight: 128,
     justifyContent: 'center',
   },
   weatherVisual: {
-    width: 112,
-    minHeight: 132,
+    width: 108,
+    minHeight: 128,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
+    borderRadius: 20,
     paddingVertical: 8,
+    paddingHorizontal: 8,
   },
   weatherBadge: {
     alignSelf: 'flex-start',
@@ -355,9 +366,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   weatherIcon: {
-    width: 78,
-    height: 78,
-    marginBottom: -10,
+    width: 74,
+    height: 74,
+  },
+  weatherIconFrame: {
+    width: 74,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
   },
   skyTitle: {
     fontSize: 26,
@@ -375,27 +392,62 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   temperature: {
-    fontSize: 61,
-    lineHeight: 68,
+    fontSize: 44,
+    lineHeight: 48,
     fontWeight: '900',
   },
+  temperatureRow: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  temperatureUnit: {
+    marginTop: 7,
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '900',
+  },
+  temperatureLabel: {
+    marginTop: -2,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
   statsPanel: {
-    minHeight: 96,
+    minHeight: 74,
     borderRadius: 16,
     flexDirection: 'row',
     overflow: 'hidden',
+    marginTop: 22,
   },
   statItem: {
     flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 7,
+    paddingHorizontal: 8,
+  },
+  statIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statText: {
+    flex: 1,
+    minWidth: 0,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '700',
   },
   statValue: {
-    fontSize: 14,
+    marginTop: 2,
+    fontSize: 13,
     fontWeight: '800',
   },
   helpCard: {
