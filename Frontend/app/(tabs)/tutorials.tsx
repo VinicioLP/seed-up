@@ -94,10 +94,7 @@ export default function Tutorials() {
         </ScrollView>
 
         <View style={styles.cards}>
-          {filteredTutorials.map((tutorial, index) => {
-            const isFeatured = index === 0;
-
-            return (
+          {filteredTutorials.map((tutorial) => (
               <Pressable
                 key={tutorial.id}
                 style={[styles.card, { backgroundColor: colors.surface }]}
@@ -121,36 +118,21 @@ export default function Tutorials() {
                       ]}>
                       {tutorial.level}
                     </Text>
-                    {isFeatured && (
-                      <Ionicons name="bookmark-outline" size={22} color={colors.tint} />
-                    )}
                   </View>
                   <Text style={[styles.cardTitle, { color: colors.text }]}>{tutorial.title}</Text>
                   <Text
                     style={[styles.cardDescription, { color: colors.muted }]}
-                    numberOfLines={isFeatured ? 3 : 2}>
+                    numberOfLines={2}>
                     {tutorial.description}
                   </Text>
                   <View style={styles.cardFooter}>
-                    {isFeatured ? (
-                      <>
-                        <Text style={[styles.meta, { color: colors.muted }]}>
-                          <Ionicons name="time-outline" size={12} /> {tutorial.duration}
-                        </Text>
-                        <Text style={[styles.meta, { color: colors.muted }]}>
-                          <Ionicons name="eye-outline" size={12} /> {tutorial.views}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text style={[styles.readMore, { color: colors.tint }]}>
-                        {'Ler mais ->'}
-                      </Text>
-                    )}
+                    <Text style={[styles.readMore, { color: colors.tint }]}>
+                      {'Ler mais ->'}
+                    </Text>
                   </View>
                 </View>
               </Pressable>
-            );
-          })}
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,6 +12,7 @@ export default function TutorialDetail() {
   const { colors } = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const tutorial = tutorials.find((item) => item.id === id) ?? tutorials[0];
+  const [isSaved, setIsSaved] = useState(false);
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
@@ -20,7 +22,15 @@ export default function TutorialDetail() {
             <Ionicons name="chevron-back" size={26} color={colors.text} />
           </Pressable>
           <Text style={[styles.topTitle, { color: colors.text }]}>Tutorial</Text>
-          <View style={styles.placeholder} />
+          <Pressable
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
+            onPress={() => setIsSaved((current) => !current)}>
+            <Ionicons
+              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              size={24}
+              color={colors.tint}
+            />
+          </Pressable>
         </View>
 
         <Image source={{ uri: tutorial.image }} style={styles.heroImage} contentFit="cover" />
@@ -92,9 +102,6 @@ const styles = StyleSheet.create({
   topTitle: {
     fontSize: 18,
     fontWeight: '800',
-  },
-  placeholder: {
-    width: 46,
   },
   heroImage: {
     width: '100%',
