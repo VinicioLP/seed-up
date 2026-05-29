@@ -24,6 +24,7 @@ function RootLayoutContent() {
     <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="tutorial/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="map-picker" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
