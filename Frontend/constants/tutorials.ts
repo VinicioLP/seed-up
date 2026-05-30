@@ -8,6 +8,7 @@ export type Tutorial = {
   description: string;
   image: string;
   intro: string;
+  materials: string[];
   steps: string[];
   tips: string[];
 };
@@ -27,6 +28,13 @@ export const tutorials: Tutorial[] = [
       'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&w=900&q=80',
     intro:
       'A hidroponia permite cultivar folhas e ervas em pouco espaco, com controle maior de agua e nutrientes.',
+    materials: [
+      'Recipiente limpo com tampa',
+      'Mudas de folhas ou ervas',
+      'Solucao nutritiva para hidroponia',
+      'Argila expandida ou espuma fenolica',
+      'Agua limpa',
+    ],
     steps: [
       'Escolha uma planta de ciclo curto, como alface, manjericao ou rucula.',
       'Separe um recipiente limpo, uma tampa de suporte e uma solucao nutritiva propria para hidroponia.',
@@ -52,6 +60,13 @@ export const tutorials: Tutorial[] = [
       'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=900&q=80',
     intro:
       'Uma horta simples funciona melhor quando comeca pequena, com especies resistentes e uma rotina facil.',
+    materials: [
+      'Vasos com furos',
+      'Substrato leve',
+      'Composto organico',
+      'Mudas ou sementes de temperos',
+      'Regador pequeno',
+    ],
     steps: [
       'Escolha um local que receba luz por algumas horas ao dia.',
       'Use vasos com furos e um prato que possa ser esvaziado depois da rega.',
@@ -77,6 +92,12 @@ export const tutorials: Tutorial[] = [
       'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=900&q=80',
     intro:
       'A rega correta depende do clima, vaso, solo e especie. O segredo e observar antes de molhar.',
+    materials: [
+      'Regador ou borrifador',
+      'Palito de madeira',
+      'Prato para vaso',
+      'Agua em temperatura ambiente',
+    ],
     steps: [
       'Toque o solo antes de regar, colocando o dedo 2 a 3 cm na terra.',
       'Se o dedo sair com terra grudada, espere mais um pouco.',
@@ -102,6 +123,13 @@ export const tutorials: Tutorial[] = [
       'https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=900&q=80',
     intro:
       'Um solo saudavel segura umidade na medida certa, permite respiracao das raizes e fornece nutrientes.',
+    materials: [
+      'Substrato ou terra vegetal',
+      'Composto organico bem curtido',
+      'Folhas secas ou palha',
+      'Pazinha de jardinagem',
+      'Vaso com drenagem',
+    ],
     steps: [
       'Use uma mistura leve, sem compactar demais o vaso.',
       'Adicione composto organico bem curtido em pequenas quantidades.',

@@ -52,6 +52,20 @@ export default function TutorialDetail() {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Materiais necessarios</Text>
+          <View style={styles.materialGrid}>
+            {tutorial.materials.map((material) => (
+              <View
+                key={material}
+                style={[styles.materialItem, { backgroundColor: colors.iconBox }]}>
+                <Ionicons name="checkmark-circle-outline" size={18} color={colors.tint} />
+                <Text style={[styles.materialText, { color: colors.text }]}>{material}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Passo a passo</Text>
           {tutorial.steps.map((step, index) => (
             <View key={step} style={styles.stepRow}>
@@ -145,6 +159,24 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '800',
+  },
+  materialGrid: {
+    gap: 10,
+  },
+  materialItem: {
+    minHeight: 44,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  materialText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
   },
   stepRow: {
     flexDirection: 'row',

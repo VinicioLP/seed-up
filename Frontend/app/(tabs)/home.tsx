@@ -23,6 +23,8 @@ const saoPauloRegion: GardenRegion = {
   longitudeDelta: 0.08,
 };
 
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.143:8000';
+
 type WeatherInfo = {
   description: string;
   temperature: number;
@@ -90,10 +92,9 @@ export default function Home() {
 
     async function loadWeather() {
       try {
-        const apiUrl = process.env.EXPO_PUBLIC_API_URL;
         setIsWeatherLoading(true);
 
-        const response = await fetch(`${apiUrl}/api/weather`, {
+        const response = await fetch(`${API_URL}/api/weather`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -103,7 +104,8 @@ export default function Home() {
         });
 
         if (!response.ok) {
-          throw new Error(`Erro ao buscar clima: ${response.status}`);
+          const errorBody = await response.text();
+          throw new Error(`Erro ao buscar clima: ${response.status} ${errorBody}`);
         }
 
         const data = (await response.json()) as OpenWeatherResponse;

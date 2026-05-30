@@ -24,7 +24,6 @@ type HortaQuestion = {
   pergunta: string;
   tipo_resposta: 'sim_nao' | 'opcao_unica' | 'multipla_escolha' | 'texto_curto' | 'numero';
   opcoes?: HortaOption[];
-  respostas_personalizadas?: Record<string, { mensagem?: string; acao_sugerida?: string }>;
   dica_curta?: string;
   proxima_pergunta_sugerida?: string | null;
 };
@@ -47,7 +46,6 @@ type HelpStage = {
   id: string;
   label: string;
   userText: string;
-  answer: string;
 };
 
 const questionBank = require('../../assets/data/perguntas_hortas_personalizadas_670.json') as QuestionBank;
@@ -74,36 +72,26 @@ const helpStages: HelpStage[] = [
     id: 'planejamento',
     label: 'Planejamento',
     userText: 'Preciso de ajuda no planejamento',
-    answer:
-      'Claro. Passo a passo para planejar sua horta:\n\n1. Escolha o local com mais luz disponivel. O ideal e observar por um dia e contar quantas horas de sol chegam ali.\n2. Defina o tamanho. Comece pequeno: 1 vaso, 1 jardineira ou um canto de canteiro.\n3. Escolha plantas compativeis com sua rotina. Se voce tem pouco tempo, prefira temperos resistentes como cebolinha, hortela, alecrim ou manjericao.\n4. Separe os materiais: recipiente com furos, substrato leve, composto organico e uma pazinha.\n5. Planeje a rega. Antes de plantar, decida quando voce consegue verificar o solo durante a semana.\n6. Comece com poucas especies. Depois que entender luz e rega do local, aumente a variedade.',
   },
   {
     id: 'plantio',
     label: 'Plantio',
     userText: 'Preciso de ajuda no plantio',
-    answer:
-      'Vamos plantar com calma:\n\n1. Confira se o vaso tem furos no fundo. Sem drenagem, a raiz pode apodrecer.\n2. Coloque uma camada leve de drenagem se tiver argila expandida ou pedras pequenas.\n3. Preencha com substrato solto e nutritivo, sem compactar demais.\n4. Abra uma cova pequena, coloque a muda ou semente e cubra com terra fina.\n5. Regue devagar na primeira vez, apenas ate o solo ficar umido.\n6. Deixe a planta em local protegido no primeiro dia, principalmente se ela veio de viveiro.\n7. Nos proximos dias, observe folhas murchas, solo seco ou excesso de agua no prato.',
   },
   {
     id: 'rega',
     label: 'Rega',
     userText: 'Preciso de ajuda com rega',
-    answer:
-      'Passo a passo para acertar a rega:\n\n1. Toque o solo antes de regar. Coloque o dedo 2 a 3 cm na terra.\n2. Se sair com terra grudada, espere mais. Se sair quase limpo, pode regar.\n3. Regue devagar, em volta da planta, ate a agua comecar a sair por baixo.\n4. Nunca deixe agua parada no pratinho por muito tempo.\n5. Em dias quentes, verifique mais vezes; em dias frios ou chuvosos, reduza.\n6. Se as folhas amarelam e o solo vive molhado, provavelmente ha excesso.\n7. Se as folhas murcham e o solo esta seco, aumente um pouco a frequencia.',
   },
   {
     id: 'pragas',
     label: 'Pragas',
     userText: 'Preciso de ajuda com pragas',
-    answer:
-      'Vamos lidar com pragas sem exagero:\n\n1. Isole a planta afetada para evitar que o problema passe para outras.\n2. Observe embaixo das folhas, nos brotos e perto do caule.\n3. Remova insetos visiveis com pano umido ou jato leve de agua.\n4. Corte folhas muito comprometidas, mas evite podar demais de uma vez.\n5. Melhore ventilacao e evite excesso de umidade parada.\n6. Acompanhe por 3 dias. Se voltar rapido, repita a limpeza.\n7. So use produtos quando identificar melhor a praga e sempre com cuidado nas plantas comestiveis.',
   },
   {
     id: 'colheita',
     label: 'Colheita',
     userText: 'Preciso de ajuda na colheita',
-    answer:
-      'Passo a passo para colher sem enfraquecer a planta:\n\n1. Colha pela manha ou no fim da tarde, quando a planta esta menos estressada.\n2. Use tesoura limpa ou os dedos com cuidado, sem puxar a raiz.\n3. Em temperos, retire folhas externas e deixe o centro crescer.\n4. Evite colher mais de um terco da planta de uma vez.\n5. Depois da colheita, observe se a planta continua firme e hidratada.\n6. Se a planta florir e voce quer folhas, pode retirar algumas flores para prolongar a producao.\n7. Mantenha rega e luz estaveis depois da colheita.',
   },
 ];
 
@@ -138,19 +126,13 @@ function getAnswerOptions(question: HortaQuestion) {
   ];
 }
 
-function makeAssistantAnswer(question: HortaQuestion, value: string) {
-  const personalized = question.respostas_personalizadas?.[value]?.mensagem;
-  const fallback =
-    'Entendi. Vou usar essa resposta para deixar a recomendacao mais adequada para sua horta.';
-
-  return personalized ?? fallback;
-}
-
 export default function ChatIa() {
   const { colors, isDark, toggleTheme } = useAppTheme();
   const [messages, setMessages] = useState<Message[]>(startMessages);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [mode, setMode] = useState<ChatMode>('profile');
+  const [profileAnswers, setProfileAnswers] = useState<Record<string, string>>({});
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const activeQuestion = initialQuestions[currentQuestionIndex] ?? null;
 
   const actions: QuickAction[] = mode === 'profile' && activeQuestion
@@ -175,9 +157,102 @@ export default function ChatIa() {
     ]);
   }
 
-  function chooseAnswer(question: HortaQuestion, value: string, label: string) {
+  async function askAgent({
+    intent,
+    userMessage,
+    currentQuestion,
+    nextQuestion,
+    profile,
+  }: {
+    intent: string;
+    userMessage: string;
+    currentQuestion?: string;
+    nextQuestion?: string;
+    profile?: Record<string, string>;
+  }) {
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+    if (!apiUrl) {
+      throw new Error('A URL da API nao foi configurada no app.');
+    }
+
+    try {
+      setIsAiLoading(true);
+
+      const response = await fetch(`${apiUrl}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          intent,
+          userMessage,
+          currentQuestion,
+          nextQuestion,
+          profile: profile ?? profileAnswers,
+          history: messages.slice(-8),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json().catch(() => null)) as {
+          message?: string;
+          details?: string;
+        } | null;
+        throw new Error(
+          [errorBody?.message, errorBody?.details].filter(Boolean).join('\n') ||
+            'A IA nao conseguiu responder agora.'
+        );
+      }
+
+      const data = (await response.json()) as { reply?: string };
+
+      if (!data.reply?.trim()) {
+        throw new Error('A IA retornou uma resposta vazia.');
+      }
+
+      return data.reply.trim();
+    } catch (error) {
+      console.error('Erro ao consultar agente IA', error);
+      throw error;
+    } finally {
+      setIsAiLoading(false);
+    }
+  }
+
+  function getAiErrorMessage(error: unknown) {
+    const details = error instanceof Error ? error.message : 'Erro inesperado.';
+
+    return `Nao consegui consultar a IA agora.\n\nDetalhes: ${details}`;
+  }
+
+  async function chooseAnswer(question: HortaQuestion, value: string, label: string) {
     const nextQuestion = initialQuestions[currentQuestionIndex + 1] ?? null;
-    const answerText = makeAssistantAnswer(question, value);
+    const nextProfileAnswers = { ...profileAnswers, [question.id]: label };
+
+    let agentReply: string;
+
+    try {
+      agentReply = await askAgent({
+        intent: 'perfil_inicial',
+        userMessage: label,
+        currentQuestion: question.pergunta,
+        nextQuestion: nextQuestion?.pergunta,
+        profile: nextProfileAnswers,
+      });
+    } catch (error) {
+      appendMessages([
+        {
+          author: 'user',
+          text: label,
+        },
+        {
+          author: 'assistant',
+          text: getAiErrorMessage(error),
+        },
+      ]);
+      return;
+    }
+
+    setProfileAnswers(nextProfileAnswers);
 
     appendMessages([
       {
@@ -186,9 +261,7 @@ export default function ChatIa() {
       },
       {
         author: 'assistant',
-        text: nextQuestion
-          ? `${answerText}\n\n${nextQuestion.pergunta}`
-          : `${answerText}\n\nPronto. Com esse perfil eu ja consigo adaptar melhor as proximas recomendacoes para sua horta.`,
+        text: agentReply,
       },
     ]);
     if (nextQuestion) {
@@ -200,7 +273,18 @@ export default function ChatIa() {
     setMode('menu');
   }
 
-  function askTips() {
+  async function askTips() {
+    let agentReply: string;
+
+    try {
+      agentReply = await askAgent({
+        intent: 'pedir_dicas',
+        userMessage: 'Quero dicas para minha horta',
+      });
+    } catch (error) {
+      agentReply = getAiErrorMessage(error);
+    }
+
     appendMessages([
       {
         author: 'user',
@@ -208,8 +292,7 @@ export default function ChatIa() {
       },
       {
         author: 'assistant',
-        text:
-          'Com base no seu perfil, aqui vao dicas praticas:\n\n1. Mantenha uma rotina simples: observe solo e folhas antes de qualquer mudanca.\n2. Regue apenas quando o solo indicar necessidade. Isso evita excesso de agua.\n3. Escolha poucas plantas no comeco e acompanhe como elas reagem ao local.\n4. Prefira ajustes pequenos: mudar luz, rega e adubo tudo ao mesmo tempo dificulta entender o que funcionou.\n5. Tire uma foto da horta uma vez por semana. Isso ajuda a perceber crescimento, manchas ou sinais de pragas.',
+        text: agentReply,
       },
     ]);
   }
@@ -229,7 +312,18 @@ export default function ChatIa() {
     setMode('help');
   }
 
-  function chooseStage(stage: HelpStage) {
+  async function chooseStage(stage: HelpStage) {
+    let agentReply: string;
+
+    try {
+      agentReply = await askAgent({
+        intent: `ajuda_${stage.id}`,
+        userMessage: stage.userText,
+      });
+    } catch (error) {
+      agentReply = getAiErrorMessage(error);
+    }
+
     appendMessages([
       {
         author: 'user',
@@ -237,7 +331,7 @@ export default function ChatIa() {
       },
       {
         author: 'assistant',
-        text: stage.answer,
+        text: agentReply,
       },
     ]);
     setMode('menu');
@@ -246,6 +340,7 @@ export default function ChatIa() {
   function restartFlow() {
     setMessages(startMessages);
     setCurrentQuestionIndex(0);
+    setProfileAnswers({});
     setMode('profile');
   }
 
@@ -315,6 +410,21 @@ export default function ChatIa() {
               </View>
             );
           })}
+          {isAiLoading ? (
+            <View style={styles.messageBlock}>
+              <View
+                style={[
+                  styles.bubble,
+                  styles.assistantBubble,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}>
+                <Text style={[styles.bubbleText, { color: colors.muted }]}>Pensando...</Text>
+              </View>
+              <Text style={[styles.meta, styles.assistantMeta, { color: colors.subtle }]}>
+                Assistente - Agora
+              </Text>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -329,7 +439,8 @@ export default function ChatIa() {
               return (
                 <Pressable
                   key="tips"
-                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint }]}
+                  disabled={isAiLoading}
+                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint, opacity: isAiLoading ? 0.55 : 1 }]}
                   onPress={askTips}>
                   <Text style={[styles.chipText, { color: colors.tint }]}>Pedir dicas</Text>
                 </Pressable>
@@ -340,7 +451,8 @@ export default function ChatIa() {
               return (
                 <Pressable
                   key="help"
-                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint }]}
+                  disabled={isAiLoading}
+                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint, opacity: isAiLoading ? 0.55 : 1 }]}
                   onPress={askHelp}>
                   <Text style={[styles.chipText, { color: colors.tint }]}>Pedir ajuda</Text>
                 </Pressable>
@@ -351,7 +463,8 @@ export default function ChatIa() {
               return (
                 <Pressable
                   key={action.stage.id}
-                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint }]}
+                  disabled={isAiLoading}
+                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint, opacity: isAiLoading ? 0.55 : 1 }]}
                   onPress={() => chooseStage(action.stage)}>
                   <Text style={[styles.chipText, { color: colors.tint }]}>{action.stage.label}</Text>
                 </Pressable>
@@ -372,7 +485,8 @@ export default function ChatIa() {
             return (
               <Pressable
                 key={`${action.question.id}-${action.value}`}
-                style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint }]}
+                disabled={isAiLoading}
+                style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint, opacity: isAiLoading ? 0.55 : 1 }]}
                 onPress={() => chooseAnswer(action.question, action.value, action.label)}>
                 <Text style={[styles.chipText, { color: colors.tint }]}>{action.label}</Text>
               </Pressable>
