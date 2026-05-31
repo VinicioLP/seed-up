@@ -164,7 +164,7 @@ export default function Login() {
               <View style={styles.fieldGroup}>
                 <View style={styles.passwordLabelRow}>
                   <Text style={[styles.fieldLabel, { color: colors.text }]}>Senha</Text>
-                  <Pressable onPress={() => setErrorMessage('Use qualquer senha com 4 caracteres para entrar.')}>
+                  <Pressable onPress={() => setErrorMessage('Use a senha cadastrada para entrar.')}>
                     <Text style={[styles.forgotText, { color: colors.tint }]}>Esqueceu?</Text>
                   </Pressable>
                 </View>

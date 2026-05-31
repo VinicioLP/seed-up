@@ -7,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/app-theme';
+import { apiFetch } from '@/lib/api';
 import { HomeMap } from '../../components/home-map';
 
 export type GardenRegion = {
@@ -22,8 +23,6 @@ const saoPauloRegion: GardenRegion = {
   latitudeDelta: 0.08,
   longitudeDelta: 0.08,
 };
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.143:8000';
 
 type WeatherInfo = {
   description: string;
@@ -94,9 +93,8 @@ export default function Home() {
       try {
         setIsWeatherLoading(true);
 
-        const response = await fetch(`${API_URL}/api/weather`, {
+        const response = await apiFetch('/api/weather', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             lat: weatherRegion.latitude,
             lon: weatherRegion.longitude,

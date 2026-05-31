@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/app-theme';
+import { apiFetch } from '@/lib/api';
 
 type Message = {
   id: number;
@@ -170,18 +171,11 @@ export default function ChatIa() {
     nextQuestion?: string;
     profile?: Record<string, string>;
   }) {
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-
-    if (!apiUrl) {
-      throw new Error('A URL da API nao foi configurada no app.');
-    }
-
     try {
       setIsAiLoading(true);
 
-      const response = await fetch(`${apiUrl}/api/ai/chat`, {
+      const response = await apiFetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           intent,
           userMessage,
