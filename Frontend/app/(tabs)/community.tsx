@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -17,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/components/app-theme';
 import { useAuth } from '@/components/auth-context';
 import { CameraCaptureModal } from '@/components/camera-capture-modal';
+import { apiFetch } from '@/lib/api';
 
 type CommunityPost = {
   id: string;
@@ -35,31 +37,89 @@ export default function Community() {
   const [postText, setPostText] = useState('');
   const [photoUris, setPhotoUris] = useState<string[]>([]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadPosts() {
+      try {
+        const response = await apiFetch('/api/community/posts');
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as { posts?: CommunityPost[] };
+
+        if (isMounted) {
+          setPosts(data.posts ?? []);
+        }
+      } catch {
+        // Keep the community usable even if the API is temporarily unavailable.
+      }
+    }
+
+    loadPosts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const emptyMessage = useMemo(
     () => (posts.length ? '' : 'Nenhuma postagem ainda. Compartilhe a primeira ideia do seu jardim.'),
     [posts.length]
   );
 
-  function createPost() {
+  async function createPost() {
     const cleanText = postText.trim();
 
     if (!cleanText) {
       return;
     }
 
-    setPosts((currentPosts) => [
-      {
-        id: Date.now().toString(),
-        author: user?.nickname ?? 'Cultivador',
-        content: cleanText,
-        imageUrls: photoUris,
-        createdAt: 'Agora',
-      },
-      ...currentPosts,
-    ]);
-    setPostText('');
-    setPhotoUris([]);
-    setIsComposerVisible(false);
+    const formData = new FormData();
+    formData.append('content', cleanText);
+    photoUris.forEach((photoUri, index) => {
+      formData.append('images[]', {
+        uri: photoUri,
+        name: `photo-${index}.jpg`,
+        type: 'image/jpeg',
+      } as any);
+    });
+
+    try {
+      const response = await apiFetch('/api/community/posts', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(errorBody?.message ?? 'Nao foi possivel salvar a postagem.');
+      }
+
+      const data = (await response.json()) as { post?: CommunityPost };
+
+      setPosts((currentPosts) => [
+        data.post ?? {
+          id: Date.now().toString(),
+          author: user?.nickname ?? 'Cultivador',
+          content: cleanText,
+          imageUrls: photoUris,
+          createdAt: 'Agora',
+        },
+        ...currentPosts,
+      ]);
+
+      setPostText('');
+      setPhotoUris([]);
+      setIsComposerVisible(false);
+    } catch (error) {
+      Alert.alert(
+        'Erro ao publicar',
+        error instanceof Error ? error.message : 'Nao foi possivel salvar a postagem.'
+      );
+    }
   }
 
   function addPhoto(photoUri: string) {

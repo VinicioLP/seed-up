@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.137.1:8000';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL;
 export const AUTH_STORAGE_KEY = '@seedup:auth';
 
 type AuthExpiredHandler = () => void;
@@ -32,8 +32,9 @@ export async function getStoredAuthToken() {
 export async function apiFetch(path: string, init: RequestInit = {}) {
   const token = await getStoredAuthToken();
   const headers = new Headers(init.headers);
+  const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
 
-  if (!headers.has('Content-Type') && init.body) {
+  if (!headers.has('Content-Type') && init.body && !isFormData) {
     headers.set('Content-Type', 'application/json');
   }
 
