@@ -3,7 +3,9 @@ import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import { Pressable, ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/app-theme';
@@ -40,6 +42,16 @@ type OpenWeatherResponse = {
   icon?: string;
   iconUrl?: string;
 };
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+      shouldShowBanner: false,
+      shouldShowList: false,
+  }),
+});
 
 export default function Home() {
   const { colors, isDark, toggleTheme } = useAppTheme();
@@ -179,6 +191,55 @@ export default function Home() {
       isMounted = false;
     };
   }, [params.latitude, params.longitude]);
+
+  useEffect(() => {
+    initNotifications();
+  }, []);
+
+  const initNotifications = async () => {
+    const token = await registerForPushNotificationsAsync();
+
+    if(token) {
+      await apiFetch('/api/devide/token', {
+        method: 'POST',
+        body: JSON.stringify({
+          push_token: token,
+        }),
+      });
+    }
+  }
+
+  async function registerForPushNotificationsAsync() {
+    let token;
+
+    if(Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C'
+      });
+    }
+
+    if(Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if(finalStatus !== 'granted') {
+        const { status } = await Notifications.getPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if(finalStatus !== 'granted') {
+        console.log("Permissão Negada.");
+        return null;
+      }
+
+      token = (await Notifications.getExpoPushTokenAsync()).data
+    }
+
+    return token;
+  }
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
