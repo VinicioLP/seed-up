@@ -1,5 +1,8 @@
 import * as Notifications from "expo-notifications";
+<<<<<<< HEAD
 import { SchedulableTriggerInputTypes } from "expo-notifications";
+=======
+>>>>>>> 60d8783801559cdc5d614f843b4f25e379f4cc1a
 import { Platform } from "react-native";
 import {
   ensureNotificationChannelAsync,
@@ -44,6 +47,8 @@ async function setupIOSNotificationScheduler() {
 
 =======
 >>>>>>> 60d8783801559cdc5d614f843b4f25e379f4cc1a
+=======
+>>>>>>> 60d8783801559cdc5d614f843b4f25e379f4cc1a
     await Notifications.scheduleNotificationAsync({
       content: {
         title: "✅ Scheduler Ativado",
@@ -51,17 +56,15 @@ async function setupIOSNotificationScheduler() {
         data: { category: "scheduler_start" },
       },
       trigger: {
-<<<<<<< HEAD
         type: SchedulableTriggerInputTypes.CALENDAR,
         repeats: true,
         hour: futureTime.getHours(),
         minute: futureTime.getMinutes(),
-=======
+
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: 3600,
         repeats: true,
         ...(Platform.OS === "android" ? { channelId: "default" } : {}),
->>>>>>> 60d8783801559cdc5d614f843b4f25e379f4cc1a
       },
     });
   } catch (error) {
