@@ -9,48 +9,21 @@ export async function startNotificationScheduler() {
   try {
     await ensureNotificationChannelAsync();
 
-    if (Platform.OS === "android") {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "✅ Scheduler Ativado",
-          body: "Você receberá notificações a cada 1 hora!",
-          data: { category: "scheduler_start" },
-        },
-        trigger: {
-          seconds: 3600,
-          repeats: true,
-        },
-      });
-    } else if (Platform.OS === "ios") {
-      await setupIOSNotificationScheduler();
-    }
-  } catch (error) {
-    console.error("Erro ao iniciar scheduler:", error);
-  }
-}
-
-async function setupIOSNotificationScheduler() {
-  // No iOS, vamos usar notificações agendadas regularmente
-  // Limpar notificações agendadas anteriores
-  await Notifications.cancelAllScheduledNotificationsAsync();
-
-  // Agendar 24 notificações (uma a cada hora)
-  const now = new Date();
-  for (let i = 1; i <= 24; i++) {
-    const futureTime = new Date(now.getTime() + i * 60 * 60 * 1000);
-
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: "🌱 Notificação SeedUp",
-        body: "Confira suas plantas!",
-        data: { category: "periodic_check" },
+        title: "✅ Scheduler Ativado",
+        body: "Você receberá notificações a cada 1 hora!",
+        data: { category: "scheduler_start" },
       },
       trigger: {
-        hour: futureTime.getHours(),
-        minute: futureTime.getMinutes(),
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 3600,
         repeats: true,
+        ...(Platform.OS === "android" ? { channelId: "default" } : {}),
       },
     });
+  } catch (error) {
+    console.error("Erro ao iniciar scheduler:", error);
   }
 }
 
