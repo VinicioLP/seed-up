@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,175 +14,81 @@ type Message = {
   time: string;
 };
 
-type HortaOption = {
-  valor: string;
-  rotulo: string;
+type MessageDraft = Omit<Message, 'id' | 'time'>;
+
+type AgentRequest = {
+  intent: string;
+  userMessage?: string;
+  history: Message[];
 };
 
-type HortaQuestion = {
-  id: string;
-  tema: string;
-  pergunta: string;
-  tipo_resposta: 'sim_nao' | 'opcao_unica' | 'multipla_escolha' | 'texto_curto' | 'numero';
-  opcoes?: HortaOption[];
-  dica_curta?: string;
-  proxima_pergunta_sugerida?: string | null;
+type AgentResponse = {
+  reply?: string;
+  quickReplies?: string[];
 };
 
-type QuestionBank = {
-  fluxo_inicial_sugerido: string[];
-  perguntas: HortaQuestion[];
-};
+const maxHistoryMessages = 10;
 
-type QuickAction =
-  | { type: 'answer'; question: HortaQuestion; value: string; label: string }
-  | { type: 'tips' }
-  | { type: 'help' }
-  | { type: 'stage'; stage: HelpStage }
-  | { type: 'restart' };
-
-type ChatMode = 'profile' | 'menu' | 'help';
-
-type HelpStage = {
-  id: string;
-  label: string;
-  userText: string;
-};
-
-const questionBank = require('../../assets/data/perguntas_hortas_personalizadas_670.json') as QuestionBank;
-
-const allQuestions = questionBank.perguntas;
-const questionsById = new Map(allQuestions.map((question) => [question.id, question]));
-const initialQuestions = questionBank.fluxo_inicial_sugerido
-  .map((id) => questionsById.get(id))
-  .filter(Boolean) as HortaQuestion[];
-const firstQuestion = initialQuestions[0];
-
-const startMessages: Message[] = [
-  {
-    id: 1,
-    author: 'assistant',
-    text:
-      `Ola! Sou seu assistente botanico. Vou montar um perfil rapido da sua horta com respostas curtas.\n\n${firstQuestion.pergunta}`,
-    time: 'Agora',
-  },
-];
-
-const helpStages: HelpStage[] = [
-  {
-    id: 'planejamento',
-    label: 'Planejamento',
-    userText: 'Preciso de ajuda no planejamento',
-  },
-  {
-    id: 'plantio',
-    label: 'Plantio',
-    userText: 'Preciso de ajuda no plantio',
-  },
-  {
-    id: 'rega',
-    label: 'Rega',
-    userText: 'Preciso de ajuda com rega',
-  },
-  {
-    id: 'pragas',
-    label: 'Pragas',
-    userText: 'Preciso de ajuda com pragas',
-  },
-  {
-    id: 'colheita',
-    label: 'Colheita',
-    userText: 'Preciso de ajuda na colheita',
-  },
-];
-
-function getAnswerOptions(question: HortaQuestion) {
-  if (question.opcoes?.length) {
-    return question.opcoes.map((option) => ({
-      value: option.valor,
-      label: option.rotulo,
-    }));
+function normalizeQuickReplies(replies?: string[]) {
+  if (!Array.isArray(replies)) {
+    return [];
   }
 
-  if (question.tipo_resposta === 'sim_nao') {
-    return [
-      { value: 'sim', label: 'Sim' },
-      { value: 'nao', label: 'Nao' },
-    ];
-  }
+  return replies
+    .filter((reply) => typeof reply === 'string' && reply.trim().length > 0)
+    .map((reply) => reply.trim())
+    .slice(0, 4);
+}
 
-  if (question.tipo_resposta === 'numero') {
-    return [
-      { value: '1', label: '1' },
-      { value: '3', label: '3' },
-      { value: '5+', label: '5+' },
-    ];
-  }
-
-  return [
-    { value: 'pouco', label: 'Pouco' },
-    { value: 'medio', label: 'Medio' },
-    { value: 'muito', label: 'Muito' },
-    { value: 'nao_sei', label: 'Nao sei' },
-  ];
+function serializeHistory(history: Message[]) {
+  return history.slice(-maxHistoryMessages).map(({ author, text }) => ({ author, text }));
 }
 
 export default function ChatIa() {
   const { colors, isDark, toggleTheme } = useAppTheme();
-  const [messages, setMessages] = useState<Message[]>(startMessages);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [mode, setMode] = useState<ChatMode>('profile');
-  const [profileAnswers, setProfileAnswers] = useState<Record<string, string>>({});
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const activeQuestion = initialQuestions[currentQuestionIndex] ?? null;
+  const nextMessageId = useRef(1);
+  const hasStarted = useRef(false);
+  const lastRequest = useRef<AgentRequest | null>(null);
 
-  const actions: QuickAction[] = mode === 'profile' && activeQuestion
-    ? getAnswerOptions(activeQuestion).map((option) => ({
-        type: 'answer',
-        question: activeQuestion,
-        value: option.value,
-        label: option.label,
-      }))
-    : mode === 'help'
-      ? helpStages.map((stage) => ({ type: 'stage', stage }))
-      : [{ type: 'tips' }, { type: 'help' }, { type: 'restart' }];
+  const makeMessages = useCallback((nextMessages: MessageDraft[]) => {
+    return nextMessages.map((message) => ({
+      ...message,
+      id: nextMessageId.current++,
+      time: 'Agora',
+    }));
+  }, []);
 
-  function appendMessages(nextMessages: Omit<Message, 'id' | 'time'>[]) {
-    setMessages((current) => [
-      ...current,
-      ...nextMessages.map((message, index) => ({
-        ...message,
-        id: current.length + index + 1,
-        time: 'Agora',
-      })),
-    ]);
-  }
+  const appendMessages = useCallback(
+    (nextMessages: MessageDraft[]) => {
+      const preparedMessages = makeMessages(nextMessages);
 
-  async function askAgent({
-    intent,
-    userMessage,
-    currentQuestion,
-    nextQuestion,
-    profile,
-  }: {
-    intent: string;
-    userMessage: string;
-    currentQuestion?: string;
-    nextQuestion?: string;
-    profile?: Record<string, string>;
-  }) {
+      setMessages((current) => [...current, ...preparedMessages]);
+
+      return preparedMessages;
+    },
+    [makeMessages]
+  );
+
+  const getAiErrorMessage = useCallback((error: unknown) => {
+    const details = error instanceof Error ? error.message : 'Erro inesperado.';
+
+    return `Nao consegui consultar a IA agora.\n\nDetalhes: ${details}`;
+  }, []);
+
+  const askAgent = useCallback(async (request: AgentRequest) => {
     try {
       setIsAiLoading(true);
+      lastRequest.current = request;
 
       const response = await apiFetch('/api/ai/chat', {
         method: 'POST',
         body: JSON.stringify({
-          intent,
-          userMessage,
-          currentQuestion,
-          nextQuestion,
-          profile: profile ?? profileAnswers,
-          history: messages.slice(-8),
+          intent: request.intent,
+          userMessage: request.userMessage,
+          history: serializeHistory(request.history),
         }),
       });
 
@@ -191,152 +97,116 @@ export default function ChatIa() {
           message?: string;
           details?: string;
         } | null;
+
         throw new Error(
           [errorBody?.message, errorBody?.details].filter(Boolean).join('\n') ||
             'A IA nao conseguiu responder agora.'
         );
       }
 
-      const data = (await response.json()) as { reply?: string };
+      const data = (await response.json()) as AgentResponse;
+      const reply = data.reply?.trim();
+      const agentQuickReplies = normalizeQuickReplies(data.quickReplies);
 
-      if (!data.reply?.trim()) {
-        throw new Error('A IA retornou uma resposta vazia.');
+      if (!reply || agentQuickReplies.length === 0) {
+        throw new Error('A IA retornou uma resposta incompleta.');
       }
 
-      return data.reply.trim();
+      return {
+        reply,
+        quickReplies: agentQuickReplies,
+      };
     } catch (error) {
       console.error('Erro ao consultar agente IA', error);
       throw error;
     } finally {
       setIsAiLoading(false);
     }
-  }
+  }, []);
 
-  function getAiErrorMessage(error: unknown) {
-    const details = error instanceof Error ? error.message : 'Erro inesperado.';
+  const runAgentRequest = useCallback(
+    async (request: AgentRequest) => {
+      try {
+        const agentResponse = await askAgent(request);
 
-    return `Nao consegui consultar a IA agora.\n\nDetalhes: ${details}`;
-  }
+        appendMessages([
+          {
+            author: 'assistant',
+            text: agentResponse.reply,
+          },
+        ]);
+        setQuickReplies(agentResponse.quickReplies);
+      } catch (error) {
+        appendMessages([
+          {
+            author: 'assistant',
+            text: getAiErrorMessage(error),
+          },
+        ]);
+        setQuickReplies([]);
+      }
+    },
+    [appendMessages, askAgent, getAiErrorMessage]
+  );
 
-  async function chooseAnswer(question: HortaQuestion, value: string, label: string) {
-    const nextQuestion = initialQuestions[currentQuestionIndex + 1] ?? null;
-    const nextProfileAnswers = { ...profileAnswers, [question.id]: label };
+  const startConversation = useCallback(async () => {
+    if (hasStarted.current) {
+      return;
+    }
 
-    let agentReply: string;
+    hasStarted.current = true;
+    setQuickReplies([]);
 
-    try {
-      agentReply = await askAgent({
-        intent: 'perfil_inicial',
-        userMessage: label,
-        currentQuestion: question.pergunta,
-        nextQuestion: nextQuestion?.pergunta,
-        profile: nextProfileAnswers,
-      });
-    } catch (error) {
-      appendMessages([
+    await runAgentRequest({
+      intent: 'start',
+      userMessage: 'Iniciar conversa',
+      history: [],
+    });
+  }, [runAgentRequest]);
+
+  useEffect(() => {
+    void startConversation();
+  }, [startConversation]);
+
+  const sendQuickReply = useCallback(
+    async (reply: string) => {
+      const userMessages = makeMessages([
         {
           author: 'user',
-          text: label,
-        },
-        {
-          author: 'assistant',
-          text: getAiErrorMessage(error),
+          text: reply,
         },
       ]);
+      const nextHistory = [...messages, ...userMessages];
+
+      setMessages((current) => [...current, ...userMessages]);
+      setQuickReplies([]);
+
+      await runAgentRequest({
+        intent: 'conversation',
+        userMessage: reply,
+        history: nextHistory,
+      });
+    },
+    [makeMessages, messages, runAgentRequest]
+  );
+
+  const retryLastRequest = useCallback(async () => {
+    const request = lastRequest.current;
+
+    if (!request) {
+      hasStarted.current = false;
+      nextMessageId.current = 1;
+      setMessages([]);
+      setQuickReplies([]);
+      await startConversation();
       return;
     }
 
-    setProfileAnswers(nextProfileAnswers);
+    setQuickReplies([]);
+    await runAgentRequest(request);
+  }, [runAgentRequest, startConversation]);
 
-    appendMessages([
-      {
-        author: 'user',
-        text: label,
-      },
-      {
-        author: 'assistant',
-        text: agentReply,
-      },
-    ]);
-    if (nextQuestion) {
-      setCurrentQuestionIndex((current) => current + 1);
-      return;
-    }
-
-    setCurrentQuestionIndex((current) => current + 1);
-    setMode('menu');
-  }
-
-  async function askTips() {
-    let agentReply: string;
-
-    try {
-      agentReply = await askAgent({
-        intent: 'pedir_dicas',
-        userMessage: 'Quero dicas para minha horta',
-      });
-    } catch (error) {
-      agentReply = getAiErrorMessage(error);
-    }
-
-    appendMessages([
-      {
-        author: 'user',
-        text: 'Quero dicas para minha horta',
-      },
-      {
-        author: 'assistant',
-        text: agentReply,
-      },
-    ]);
-  }
-
-  function askHelp() {
-    appendMessages([
-      {
-        author: 'user',
-        text: 'Preciso de ajuda',
-      },
-      {
-        author: 'assistant',
-        text:
-          'Claro. Em qual etapa voce precisa de ajuda? Escolha uma opcao e eu te respondo com um passo a passo detalhado.',
-      },
-    ]);
-    setMode('help');
-  }
-
-  async function chooseStage(stage: HelpStage) {
-    let agentReply: string;
-
-    try {
-      agentReply = await askAgent({
-        intent: `ajuda_${stage.id}`,
-        userMessage: stage.userText,
-      });
-    } catch (error) {
-      agentReply = getAiErrorMessage(error);
-    }
-
-    appendMessages([
-      {
-        author: 'user',
-        text: stage.userText,
-      },
-      {
-        author: 'assistant',
-        text: agentReply,
-      },
-    ]);
-    setMode('menu');
-  }
-
-  function restartFlow() {
-    setMessages(startMessages);
-    setCurrentQuestionIndex(0);
-    setProfileAnswers({});
-    setMode('profile');
-  }
+  const showRetryButton = !isAiLoading && quickReplies.length === 0 && lastRequest.current;
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
@@ -354,9 +224,7 @@ export default function ChatIa() {
         </Pressable>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={[styles.heroIcon, { backgroundColor: colors.tint }]}>
           <Ionicons name="hardware-chip-outline" size={36} color="#FFFFFF" />
         </View>
@@ -366,7 +234,7 @@ export default function ChatIa() {
             Como posso ajudar sua horta hoje?
           </Text>
           <Text style={[styles.introText, { color: colors.muted }]}>
-            Use perguntas prontas e responda com poucas palavras, sim ou nao.
+            A IA cria as perguntas e opcoes conforme a conversa avanca.
           </Text>
         </View>
 
@@ -427,65 +295,34 @@ export default function ChatIa() {
           styles.quickBar,
           { backgroundColor: colors.background, borderTopColor: colors.border },
         ]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {actions.map((action) => {
-            if (action.type === 'tips') {
-              return (
-                <Pressable
-                  key="tips"
-                  disabled={isAiLoading}
-                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint, opacity: isAiLoading ? 0.55 : 1 }]}
-                  onPress={askTips}>
-                  <Text style={[styles.chipText, { color: colors.tint }]}>Pedir dicas</Text>
-                </Pressable>
-              );
-            }
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chips}>
+          {quickReplies.map((reply, index) => (
+            <Pressable
+              key={`${reply}-${index}`}
+              disabled={isAiLoading}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.tint,
+                  opacity: isAiLoading ? 0.55 : 1,
+                },
+              ]}
+              onPress={() => sendQuickReply(reply)}>
+              <Text style={[styles.chipText, { color: colors.tint }]}>{reply}</Text>
+            </Pressable>
+          ))}
 
-            if (action.type === 'help') {
-              return (
-                <Pressable
-                  key="help"
-                  disabled={isAiLoading}
-                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint, opacity: isAiLoading ? 0.55 : 1 }]}
-                  onPress={askHelp}>
-                  <Text style={[styles.chipText, { color: colors.tint }]}>Pedir ajuda</Text>
-                </Pressable>
-              );
-            }
-
-            if (action.type === 'stage') {
-              return (
-                <Pressable
-                  key={action.stage.id}
-                  disabled={isAiLoading}
-                  style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint, opacity: isAiLoading ? 0.55 : 1 }]}
-                  onPress={() => chooseStage(action.stage)}>
-                  <Text style={[styles.chipText, { color: colors.tint }]}>{action.stage.label}</Text>
-                </Pressable>
-              );
-            }
-
-            if (action.type === 'restart') {
-              return (
-                <Pressable
-                  key="restart"
-                  style={[styles.chip, { backgroundColor: colors.tint, borderColor: colors.tint }]}
-                  onPress={restartFlow}>
-                  <Text style={[styles.chipText, { color: '#FFFFFF' }]}>Refazer perfil</Text>
-                </Pressable>
-              );
-            }
-
-            return (
-              <Pressable
-                key={`${action.question.id}-${action.value}`}
-                disabled={isAiLoading}
-                style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.tint, opacity: isAiLoading ? 0.55 : 1 }]}
-                onPress={() => chooseAnswer(action.question, action.value, action.label)}>
-                <Text style={[styles.chipText, { color: colors.tint }]}>{action.label}</Text>
-              </Pressable>
-            );
-          })}
+          {showRetryButton ? (
+            <Pressable
+              style={[styles.chip, { backgroundColor: colors.tint, borderColor: colors.tint }]}
+              onPress={retryLastRequest}>
+              <Text style={[styles.chipText, { color: '#FFFFFF' }]}>Tentar novamente</Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -529,7 +366,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 26,
     paddingTop: 26,
-    paddingBottom: 96,
+    paddingBottom: 108,
     gap: 22,
   },
   heroIcon: {
@@ -612,19 +449,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
-  },
-  questionChip: {
-    width: 230,
-    minHeight: 62,
-    borderRadius: 20,
-    borderWidth: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    gap: 3,
-  },
-  questionTheme: {
-    fontSize: 11,
-    fontWeight: '700',
   },
   chipText: {
     fontSize: 15,

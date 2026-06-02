@@ -1,18 +1,42 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/app-theme';
-import { tutorials } from '@/constants/tutorials';
+import { Tutorial, fetchTutorial } from '@/lib/tutorials';
 
 export default function TutorialDetail() {
   const { colors } = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const tutorial = tutorials.find((item) => item.id === id) ?? tutorials[0];
+  const [tutorial, setTutorial] = useState<Tutorial | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const loadTutorial = useCallback(async () => {
+    if (!id) {
+      setErrorMessage('Tutorial nao encontrado.');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+      setTutorial(await fetchTutorial(id));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Erro inesperado.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void loadTutorial();
+  }, [loadTutorial]);
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
@@ -33,59 +57,88 @@ export default function TutorialDetail() {
           </Pressable>
         </View>
 
-        <Image source={{ uri: tutorial.image }} style={styles.heroImage} contentFit="cover" />
-
-        <View style={styles.titleBlock}>
-          <Text style={[styles.levelBadge, { backgroundColor: colors.iconBox, color: colors.tint }]}>
-            {tutorial.level}
-          </Text>
-          <Text style={[styles.title, { color: colors.text }]}>{tutorial.title}</Text>
-          <Text style={[styles.description, { color: colors.muted }]}>{tutorial.intro}</Text>
-          <View style={styles.metaRow}>
-            <Text style={[styles.meta, { color: colors.muted }]}>
-              <Ionicons name="time-outline" size={13} /> {tutorial.duration}
-            </Text>
-            <Text style={[styles.meta, { color: colors.muted }]}>
-              <Ionicons name="eye-outline" size={13} /> {tutorial.views}
-            </Text>
+        {isLoading ? (
+          <View style={[styles.stateBlock, { backgroundColor: colors.surface }]}>
+            <ActivityIndicator color={colors.tint} />
+            <Text style={[styles.stateText, { color: colors.muted }]}>Carregando tutorial...</Text>
           </View>
-        </View>
+        ) : null}
 
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Materiais necessarios</Text>
-          <View style={styles.materialGrid}>
-            {tutorial.materials.map((material) => (
-              <View
-                key={material}
-                style={[styles.materialItem, { backgroundColor: colors.iconBox }]}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={colors.tint} />
-                <Text style={[styles.materialText, { color: colors.text }]}>{material}</Text>
-              </View>
-            ))}
+        {!isLoading && errorMessage ? (
+          <View style={[styles.stateBlock, { backgroundColor: colors.surface }]}>
+            <Ionicons name="alert-circle-outline" size={28} color={colors.tint} />
+            <Text style={[styles.stateText, { color: colors.muted }]}>{errorMessage}</Text>
+            <Pressable
+              style={[styles.retryButton, { backgroundColor: colors.tint }]}
+              onPress={loadTutorial}>
+              <Text style={styles.retryText}>Tentar novamente</Text>
+            </Pressable>
           </View>
-        </View>
+        ) : null}
 
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Passo a passo</Text>
-          {tutorial.steps.map((step, index) => (
-            <View key={step} style={styles.stepRow}>
-              <View style={[styles.stepNumber, { backgroundColor: colors.tint }]}>
-                <Text style={styles.stepNumberText}>{index + 1}</Text>
+        {tutorial ? (
+          <>
+            <Image source={{ uri: tutorial.image }} style={styles.heroImage} contentFit="cover" />
+
+            <View style={styles.titleBlock}>
+              <Text
+                style={[
+                  styles.levelBadge,
+                  { backgroundColor: colors.iconBox, color: colors.tint },
+                ]}>
+                {tutorial.level}
+              </Text>
+              <Text style={[styles.title, { color: colors.text }]}>{tutorial.title}</Text>
+              <Text style={[styles.description, { color: colors.muted }]}>{tutorial.intro}</Text>
+              <View style={styles.metaRow}>
+                <Text style={[styles.meta, { color: colors.muted }]}>
+                  <Ionicons name="time-outline" size={13} /> {tutorial.duration}
+                </Text>
+                <Text style={[styles.meta, { color: colors.muted }]}>
+                  <Ionicons name="eye-outline" size={13} /> {tutorial.views}
+                </Text>
               </View>
-              <Text style={[styles.stepText, { color: colors.muted }]}>{step}</Text>
             </View>
-          ))}
-        </View>
 
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Dicas rapidas</Text>
-          {tutorial.tips.map((tip) => (
-            <View key={tip} style={styles.tipRow}>
-              <Ionicons name="leaf-outline" size={18} color={colors.tint} />
-              <Text style={[styles.tipText, { color: colors.muted }]}>{tip}</Text>
+            <View style={[styles.section, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Materiais necessarios
+              </Text>
+              <View style={styles.materialGrid}>
+                {tutorial.materials.map((material) => (
+                  <View
+                    key={material}
+                    style={[styles.materialItem, { backgroundColor: colors.iconBox }]}>
+                    <Ionicons name="checkmark-circle-outline" size={18} color={colors.tint} />
+                    <Text style={[styles.materialText, { color: colors.text }]}>{material}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          ))}
-        </View>
+
+            <View style={[styles.section, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Passo a passo</Text>
+              {tutorial.steps.map((step, index) => (
+                <View key={step} style={styles.stepRow}>
+                  <View style={[styles.stepNumber, { backgroundColor: colors.tint }]}>
+                    <Text style={styles.stepNumberText}>{index + 1}</Text>
+                  </View>
+                  <Text style={[styles.stepText, { color: colors.muted }]}>{step}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={[styles.section, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Dicas rapidas</Text>
+              {tutorial.tips.map((tip) => (
+                <View key={tip} style={styles.tipRow}>
+                  <Ionicons name="leaf-outline" size={18} color={colors.tint} />
+                  <Text style={[styles.tipText, { color: colors.muted }]}>{tip}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -121,6 +174,29 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 240,
     borderRadius: 20,
+  },
+  stateBlock: {
+    borderRadius: 18,
+    padding: 20,
+    alignItems: 'center',
+    gap: 12,
+  },
+  stateText: {
+    textAlign: 'center',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  retryButton: {
+    minHeight: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
   titleBlock: {
     gap: 12,

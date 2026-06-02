@@ -1,17 +1,56 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/app-theme';
-import { tutorialCategories, tutorials } from '@/constants/tutorials';
+import { Tutorial, fetchTutorials } from '@/lib/tutorials';
+
+const fallbackCategories = ['Todos', 'Horta', 'Irrigacao', 'Solo', 'Pragas'];
 
 export default function Tutorials() {
   const { colors, isDark, toggleTheme } = useAppTheme();
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [search, setSearch] = useState('');
+  const [tutorials, setTutorials] = useState<Tutorial[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const loadTutorials = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+      setTutorials(await fetchTutorials());
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Erro inesperado.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTutorials();
+  }, [loadTutorials]);
+
+  const tutorialCategories = useMemo(() => {
+    const categories = tutorials.map((tutorial) => tutorial.category).filter(Boolean);
+
+    if (categories.length === 0) {
+      return fallbackCategories;
+    }
+
+    return ['Todos', ...Array.from(new Set(categories))];
+  }, [tutorials]);
 
   const filteredTutorials = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -26,7 +65,7 @@ export default function Tutorials() {
 
       return matchesCategory && matchesSearch;
     });
-  }, [search, selectedCategory]);
+  }, [search, selectedCategory, tutorials]);
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
@@ -45,12 +84,14 @@ export default function Tutorials() {
           </Pressable>
         </View>
 
-        <View style={styles.titleBlock}>
+        <Pressable
+          style={styles.titleBlock}
+          onLongPress={() => router.push('/tutorial/new' as never)}>
           <Text style={[styles.title, { color: colors.text }]}>Tutoriais de Cultivo</Text>
           <Text style={[styles.subtitle, { color: colors.muted }]}>
             Aprenda as melhores tecnicas para transformar seu espaco em um santuario verde.
           </Text>
-        </View>
+        </Pressable>
 
         <View style={[styles.searchBox, { backgroundColor: colors.surface }]}>
           <Ionicons name="search-outline" size={18} color={colors.subtle} />
@@ -93,8 +134,28 @@ export default function Tutorials() {
           })}
         </ScrollView>
 
-        <View style={styles.cards}>
-          {filteredTutorials.map((tutorial) => (
+        {isLoading ? (
+          <View style={styles.stateBlock}>
+            <ActivityIndicator color={colors.tint} />
+            <Text style={[styles.stateText, { color: colors.muted }]}>Carregando tutoriais...</Text>
+          </View>
+        ) : null}
+
+        {!isLoading && errorMessage ? (
+          <View style={[styles.stateBlock, { backgroundColor: colors.surface }]}>
+            <Ionicons name="alert-circle-outline" size={26} color={colors.tint} />
+            <Text style={[styles.stateText, { color: colors.muted }]}>{errorMessage}</Text>
+            <Pressable
+              style={[styles.retryButton, { backgroundColor: colors.tint }]}
+              onPress={loadTutorials}>
+              <Text style={styles.retryText}>Tentar novamente</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {!isLoading && !errorMessage ? (
+          <View style={styles.cards}>
+            {filteredTutorials.map((tutorial) => (
               <Pressable
                 key={tutorial.id}
                 style={[styles.card, { backgroundColor: colors.surface }]}
@@ -132,8 +193,17 @@ export default function Tutorials() {
                   </View>
                 </View>
               </Pressable>
-          ))}
-        </View>
+            ))}
+
+            {filteredTutorials.length === 0 ? (
+              <View style={[styles.stateBlock, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.stateText, { color: colors.muted }]}>
+                  Nenhum tutorial encontrado.
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -223,6 +293,30 @@ const styles = StyleSheet.create({
   cards: {
     paddingHorizontal: 24,
     gap: 28,
+  },
+  stateBlock: {
+    marginHorizontal: 24,
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    gap: 12,
+  },
+  stateText: {
+    textAlign: 'center',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  retryButton: {
+    minHeight: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
   card: {
     borderRadius: 18,

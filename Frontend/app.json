@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Frontend",
-    "slug": "Frontend",
+    "name": "SeedUp",
+    "slug": "seed-up",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "seedup",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -31,7 +31,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Permita que o Garden Path use sua localização para mostrar o mapa da sua região."
+          "locationWhenInUsePermission": "Permita que o SeedUp use sua localizacao para mostrar o mapa da sua regiao."
         }
       ],
       [

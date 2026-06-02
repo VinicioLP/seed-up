@@ -12,8 +12,6 @@ class AiChatController extends Controller
         $validated = $request->validate([
             'intent' => ['required', 'string'],
             'userMessage' => ['nullable', 'string', 'max:600'],
-            'currentQuestion' => ['nullable', 'string', 'max:600'],
-            'nextQuestion' => ['nullable', 'string', 'max:600'],
             'profile' => ['array'],
             'history' => ['array'],
         ]);
@@ -28,8 +26,6 @@ class AiChatController extends Controller
         }
 
         $profile = json_encode($validated['profile'] ?? [], JSON_UNESCAPED_UNICODE);
-        $currentQuestion = $validated['currentQuestion'] ?? '';
-        $nextQuestion = $validated['nextQuestion'] ?? '';
         $userMessage = $validated['userMessage'] ?? '';
         $history = collect($validated['history'] ?? [])
             ->take(-10)
@@ -42,16 +38,26 @@ Responda em portugues do Brasil, com linguagem simples, acolhedora e pratica.
 Seu papel e conduzir uma conversa guiada sobre hortas, plantas, rega, pragas, solo, adubacao e cultivo domestico.
 
 Regras:
-- Se houver uma proxima pergunta, termine sua resposta fazendo exatamente essa pergunta.
-- Prefira respostas curtas durante o perfil inicial.
-- Quando o usuario pedir ajuda, entregue um passo a passo detalhado.
+- Crie voce mesmo as perguntas e respostas prontas. Nao dependa de lista local ou arquivo JSON.
+- Sempre devolva respostas prontas curtas para o usuario continuar a conversa.
+- As respostas prontas devem ser frases que o usuario poderia tocar e enviar diretamente.
+- Use de 2 a 4 respostas prontas, com no maximo 34 caracteres cada.
+- No primeiro contato, conheca o perfil do usuario com uma pergunta por vez.
+- Depois do perfil inicial, ofereca caminhos como pedir dicas ou pedir ajuda.
+- Quando o usuario pedir ajuda, pergunte a etapa e depois entregue um passo a passo detalhado.
 - Nunca recomende produtos perigosos ou agrotoxicos sem orientar cuidado e identificacao correta.
 - Se faltar contexto, faca uma pergunta curta.
 
+Formato obrigatorio:
+- Responda SOMENTE com JSON valido, sem markdown, sem texto fora do JSON.
+- O JSON deve seguir exatamente este formato:
+{
+  "reply": "mensagem do assistente",
+  "quickReplies": ["opcao curta 1", "opcao curta 2", "opcao curta 3"]
+}
+
 Intencao: {$validated['intent']}
 Mensagem do usuario: {$userMessage}
-Pergunta atual: {$currentQuestion}
-Proxima pergunta sugerida: {$nextQuestion}
 Perfil conhecido em JSON: {$profile}
 
 Historico recente:
@@ -85,10 +91,53 @@ PROMPT;
             ], $response->status());
         }
 
-        $reply = $response->json('candidates.0.content.parts.0.text');
+        $rawReply = $response->json('candidates.0.content.parts.0.text') ?? '';
+        $payload = $this->decodeAgentPayload($rawReply);
+        $reply = trim((string) ($payload['reply'] ?? ''));
+        $quickReplies = $this->normalizeQuickReplies($payload['quickReplies'] ?? []);
+
+        if (!$reply || count($quickReplies) === 0) {
+            return response()->json([
+                'message' => 'A IA nao retornou uma resposta valida.',
+                'details' => 'Tente novamente em instantes.',
+            ], 502);
+        }
 
         return response()->json([
-            'reply' => $reply ?: 'Nao consegui responder agora. Tente novamente em instantes.',
+            'reply' => $reply,
+            'quickReplies' => $quickReplies,
         ]);
+    }
+
+    private function decodeAgentPayload(string $rawReply): array
+    {
+        $cleanReply = trim($rawReply);
+
+        if (preg_match('/```(?:json)?\s*(.*?)\s*```/s', $cleanReply, $matches)) {
+            $cleanReply = trim($matches[1]);
+        }
+
+        if (!str_starts_with($cleanReply, '{') && preg_match('/\{.*\}/s', $cleanReply, $matches)) {
+            $cleanReply = $matches[0];
+        }
+
+        $decoded = json_decode($cleanReply, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function normalizeQuickReplies(mixed $quickReplies): array
+    {
+        if (!is_array($quickReplies)) {
+            return [];
+        }
+
+        return collect($quickReplies)
+            ->filter(fn ($reply) => is_string($reply) && trim($reply) !== '')
+            ->map(fn ($reply) => trim($reply))
+            ->unique()
+            ->take(4)
+            ->values()
+            ->all();
     }
 }
