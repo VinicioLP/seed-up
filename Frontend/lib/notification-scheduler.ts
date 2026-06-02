@@ -1,48 +1,31 @@
-import * as Notifications from 'expo-notifications';
-import * as TaskManager from 'expo-task-manager';
-import { Platform } from 'react-native';
-import { ensureNotificationChannelAsync, sendRandomNotificationAsync } from './notifications';
-
-const NOTIFICATION_TASK = 'NOTIFICATION_SCHEDULER_TASK';
-
-// Tarefa de background para enviar notificações
-TaskManager.defineTask(NOTIFICATION_TASK, async () => {
-  try {
-    await ensureNotificationChannelAsync();
-    await sendRandomNotificationAsync();
-    return TaskManager.BackgroundTaskResult.NewData;
-  } catch (error) {
-    console.error('Erro na tarefa de notificação:', error);
-    return TaskManager.BackgroundTaskResult.Failed;
-  }
-});
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
+import {
+  ensureNotificationChannelAsync,
+  sendRandomNotificationAsync,
+} from "./notifications";
 
 export async function startNotificationScheduler() {
   try {
     await ensureNotificationChannelAsync();
 
-    // Se for Android, registra a tarefa de background
-    if (Platform.OS === 'android') {
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(NOTIFICATION_TASK);
-
-      if (!isRegistered) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '✅ Scheduler Ativado',
-            body: 'Você receberá notificações a cada 1 hora!',
-            data: { category: 'scheduler_start' },
-          },
-          trigger: null,
-        });
-      }
-    }
-
-    // Para iOS, usa um scheduler local
-    if (Platform.OS === 'ios') {
-      setupIOSNotificationScheduler();
+    if (Platform.OS === "android") {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "✅ Scheduler Ativado",
+          body: "Você receberá notificações a cada 1 hora!",
+          data: { category: "scheduler_start" },
+        },
+        trigger: {
+          seconds: 3600,
+          repeats: true,
+        },
+      });
+    } else if (Platform.OS === "ios") {
+      await setupIOSNotificationScheduler();
     }
   } catch (error) {
-    console.error('Erro ao iniciar scheduler:', error);
+    console.error("Erro ao iniciar scheduler:", error);
   }
 }
 
@@ -58,9 +41,9 @@ async function setupIOSNotificationScheduler() {
 
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🌱 Notificação SeedUp',
-        body: 'Confira suas plantas!',
-        data: { category: 'periodic_check' },
+        title: "🌱 Notificação SeedUp",
+        body: "Confira suas plantas!",
+        data: { category: "periodic_check" },
       },
       trigger: {
         hour: futureTime.getHours(),
@@ -73,16 +56,9 @@ async function setupIOSNotificationScheduler() {
 
 export async function stopNotificationScheduler() {
   try {
-    if (Platform.OS === 'android') {
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(NOTIFICATION_TASK);
-      if (isRegistered) {
-        await TaskManager.unregisterTaskAsync(NOTIFICATION_TASK);
-      }
-    } else if (Platform.OS === 'ios') {
-      await Notifications.cancelAllScheduledNotificationsAsync();
-    }
+    await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (error) {
-    console.error('Erro ao parar scheduler:', error);
+    console.error("Erro ao parar scheduler:", error);
   }
 }
 
@@ -91,6 +67,6 @@ export async function testScheduler() {
     await ensureNotificationChannelAsync();
     await sendRandomNotificationAsync();
   } catch (error) {
-    console.error('Erro ao testar scheduler:', error);
+    console.error("Erro ao testar scheduler:", error);
   }
 }
