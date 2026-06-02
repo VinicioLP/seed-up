@@ -1,48 +1,34 @@
-import * as Notifications from 'expo-notifications';
-import * as TaskManager from 'expo-task-manager';
-import { Platform } from 'react-native';
-import { ensureNotificationChannelAsync, sendRandomNotificationAsync } from './notifications';
-
-const NOTIFICATION_TASK = 'NOTIFICATION_SCHEDULER_TASK';
-
-// Tarefa de background para enviar notificações
-TaskManager.defineTask(NOTIFICATION_TASK, async () => {
-  try {
-    await ensureNotificationChannelAsync();
-    await sendRandomNotificationAsync();
-    return TaskManager.BackgroundTaskResult.NewData;
-  } catch (error) {
-    console.error('Erro na tarefa de notificação:', error);
-    return TaskManager.BackgroundTaskResult.Failed;
-  }
-});
+import * as Notifications from "expo-notifications";
+import { SchedulableTriggerInputTypes } from "expo-notifications";
+import { Platform } from "react-native";
+import {
+  ensureNotificationChannelAsync,
+  sendRandomNotificationAsync,
+} from "./notifications";
 
 export async function startNotificationScheduler() {
   try {
     await ensureNotificationChannelAsync();
 
-    // Se for Android, registra a tarefa de background
-    if (Platform.OS === 'android') {
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(NOTIFICATION_TASK);
-
-      if (!isRegistered) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '✅ Scheduler Ativado',
-            body: 'Você receberá notificações a cada 1 hora!',
-            data: { category: 'scheduler_start' },
-          },
-          trigger: null,
-        });
-      }
-    }
-
-    // Para iOS, usa um scheduler local
-    if (Platform.OS === 'ios') {
-      setupIOSNotificationScheduler();
+<<<<<<< HEAD
+    if (Platform.OS === "android") {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "✅ Scheduler Ativado",
+          body: "Você receberá notificações a cada 1 hora!",
+          data: { category: "scheduler_start" },
+        },
+        trigger: {
+          type: SchedulableTriggerInputTypes.DAILY,
+          hour: 9,
+          minute: 0,
+        },
+      });
+    } else if (Platform.OS === "ios") {
+      await setupIOSNotificationScheduler();
     }
   } catch (error) {
-    console.error('Erro ao iniciar scheduler:', error);
+    console.error("Erro ao iniciar scheduler:", error);
   }
 }
 
@@ -56,33 +42,38 @@ async function setupIOSNotificationScheduler() {
   for (let i = 1; i <= 24; i++) {
     const futureTime = new Date(now.getTime() + i * 60 * 60 * 1000);
 
+=======
+>>>>>>> 60d8783801559cdc5d614f843b4f25e379f4cc1a
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🌱 Notificação SeedUp',
-        body: 'Confira suas plantas!',
-        data: { category: 'periodic_check' },
+        title: "✅ Scheduler Ativado",
+        body: "Você receberá notificações a cada 1 hora!",
+        data: { category: "scheduler_start" },
       },
       trigger: {
+<<<<<<< HEAD
+        type: SchedulableTriggerInputTypes.CALENDAR,
+        repeats: true,
         hour: futureTime.getHours(),
         minute: futureTime.getMinutes(),
+=======
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 3600,
         repeats: true,
+        ...(Platform.OS === "android" ? { channelId: "default" } : {}),
+>>>>>>> 60d8783801559cdc5d614f843b4f25e379f4cc1a
       },
     });
+  } catch (error) {
+    console.error("Erro ao iniciar scheduler:", error);
   }
 }
 
 export async function stopNotificationScheduler() {
   try {
-    if (Platform.OS === 'android') {
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(NOTIFICATION_TASK);
-      if (isRegistered) {
-        await TaskManager.unregisterTaskAsync(NOTIFICATION_TASK);
-      }
-    } else if (Platform.OS === 'ios') {
-      await Notifications.cancelAllScheduledNotificationsAsync();
-    }
+    await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (error) {
-    console.error('Erro ao parar scheduler:', error);
+    console.error("Erro ao parar scheduler:", error);
   }
 }
 
@@ -91,6 +82,6 @@ export async function testScheduler() {
     await ensureNotificationChannelAsync();
     await sendRandomNotificationAsync();
   } catch (error) {
-    console.error('Erro ao testar scheduler:', error);
+    console.error("Erro ao testar scheduler:", error);
   }
 }
