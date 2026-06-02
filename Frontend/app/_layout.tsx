@@ -11,6 +11,7 @@ import 'react-native-reanimated';
 
 import { AppThemeProvider, useAppTheme } from '@/components/app-theme';
 import { AuthProvider } from '@/components/auth-context';
+import { useNotificationScheduler } from '@/hooks/useNotificationScheduler';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -28,6 +29,7 @@ export default function RootLayout() {
 
 function RootLayoutContent() {
   const { isDark } = useAppTheme();
+  useNotificationScheduler();
 
   useEffect(() => {
     if (Platform.OS !== 'android') {
