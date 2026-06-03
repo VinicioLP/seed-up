@@ -121,6 +121,23 @@ export default function Profile() {
             <Text style={[styles.logoutText, { color: colors.tint }]}>Sair da conta</Text>
           </Pressable>
         </View>
+
+        <Pressable
+          style={[styles.savedTutorialsCard, { backgroundColor: colors.surface }]}
+          onPress={() => router.push('/tutorial/saved' as never)}>
+          <View style={[styles.savedTutorialsIcon, { backgroundColor: colors.iconBox }]}>
+            <Ionicons name="bookmark-outline" size={26} color={colors.tint} />
+          </View>
+          <View style={styles.savedTutorialsTextGroup}>
+            <Text style={[styles.savedTutorialsTitle, { color: colors.text }]}>
+              Tutoriais salvos
+            </Text>
+            <Text style={[styles.savedTutorialsSubtitle, { color: colors.muted }]}>
+              Veja os guias que voce marcou para consultar depois.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={22} color={colors.subtle} />
+        </Pressable>
       </ScrollView>
 
       <CameraCaptureModal
@@ -267,5 +284,33 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '900',
+  },
+  savedTutorialsCard: {
+    width: '100%',
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  savedTutorialsIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savedTutorialsTextGroup: {
+    flex: 1,
+    gap: 4,
+  },
+  savedTutorialsTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '900',
+  },
+  savedTutorialsSubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

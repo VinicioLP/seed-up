@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
@@ -41,5 +42,10 @@ class User extends Authenticatable
         $name = urlencode($this->name);
 
         return "https://ui-avatars.com/api/?name={$name}&background=random&size=200";
+    }
+
+    public function savedTutorials(): BelongsToMany
+    {
+        return $this->belongsToMany(Tutorial::class, 'saved_tutorials')->withTimestamps();
     }
 }

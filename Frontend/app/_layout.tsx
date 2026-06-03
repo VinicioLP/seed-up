@@ -63,6 +63,7 @@ function RootLayoutContent() {
         <Stack.Screen name="signup" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="tutorial/new" options={{ headerShown: false }} />
+        <Stack.Screen name="tutorial/saved" options={{ headerShown: false }} />
         <Stack.Screen name="tutorial/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="map-picker" options={{ headerShown: false }} />
       </Stack>

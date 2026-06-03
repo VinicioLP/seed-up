@@ -9,10 +9,21 @@ class WeatherController extends Controller
 {
     public function getWeather(Request $request, WeatherService $service)
     {
-        $lat = $request->input('lat');
-        $lon = $request->input('lon');
+        $validated = $request->validate([
+            'lat' => ['required', 'numeric'],
+            'lon' => ['required', 'numeric'],
+        ]);
 
-        $data = $service->getWeather($lat, $lon);
+        $data = $service->getWeather((float) $validated['lat'], (float) $validated['lon']);
+
+        if (
+            !$data ||
+            !isset($data['weather'][0], $data['main']['temp'], $data['main']['humidity'], $data['wind']['speed'])
+        ) {
+            return response()->json([
+                'message' => 'Nao foi possivel carregar o clima agora.',
+            ], 503);
+        }
 
         return response()->json([
             'description' => ucfirst($data['weather'][0]['description']),

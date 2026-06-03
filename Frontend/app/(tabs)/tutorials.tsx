@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -14,12 +14,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/app-theme';
+import { useAuth } from '@/components/auth-context';
 import { Tutorial, fetchTutorials } from '@/lib/tutorials';
 
 const fallbackCategories = ['Todos', 'Horta', 'Irrigacao', 'Solo', 'Pragas'];
 
 export default function Tutorials() {
   const { colors, isDark, toggleTheme } = useAppTheme();
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [search, setSearch] = useState('');
   const [tutorials, setTutorials] = useState<Tutorial[]>([]);
@@ -38,9 +40,11 @@ export default function Tutorials() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadTutorials();
-  }, [loadTutorials]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadTutorials();
+    }, [loadTutorials])
+  );
 
   const tutorialCategories = useMemo(() => {
     const categories = tutorials.map((tutorial) => tutorial.category).filter(Boolean);
@@ -72,7 +76,13 @@ export default function Tutorials() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.brandGroup}>
-            <Image source={require('@/assets/images/icon.png')} style={styles.avatar} />
+            <Pressable onPress={() => router.push('/profile')}>
+              <Image
+                source={user?.profilePhotoUri ? { uri: user.profilePhotoUri } : require('@/assets/images/icon.png')}
+                style={styles.avatar}
+                contentFit="cover"
+              />
+            </Pressable>
             <Text style={[styles.brand, { color: colors.tint }]}>SeedUp</Text>
           </View>
           <Pressable style={styles.themeButton} onPress={toggleTheme}>

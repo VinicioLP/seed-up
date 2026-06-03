@@ -6,13 +6,14 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/app-theme';
-import { Tutorial, fetchTutorial } from '@/lib/tutorials';
+import { Tutorial, fetchTutorial, saveTutorial, unsaveTutorial } from '@/lib/tutorials';
 
 export default function TutorialDetail() {
   const { colors } = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [tutorial, setTutorial] = useState<Tutorial | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -26,7 +27,9 @@ export default function TutorialDetail() {
     try {
       setIsLoading(true);
       setErrorMessage('');
-      setTutorial(await fetchTutorial(id));
+      const loadedTutorial = await fetchTutorial(id);
+      setTutorial(loadedTutorial);
+      setIsSaved(Boolean(loadedTutorial.isSaved));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Erro inesperado.');
     } finally {
@@ -38,6 +41,26 @@ export default function TutorialDetail() {
     void loadTutorial();
   }, [loadTutorial]);
 
+  async function toggleSaved() {
+    if (!tutorial || isSaving) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const updatedTutorial = isSaved
+        ? await unsaveTutorial(tutorial.id)
+        : await saveTutorial(tutorial.id);
+
+      setTutorial(updatedTutorial);
+      setIsSaved(Boolean(updatedTutorial.isSaved));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel atualizar os salvos.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -47,8 +70,12 @@ export default function TutorialDetail() {
           </Pressable>
           <Text style={[styles.topTitle, { color: colors.text }]}>Tutorial</Text>
           <Pressable
-            style={[styles.iconButton, { backgroundColor: colors.surface }]}
-            onPress={() => setIsSaved((current) => !current)}>
+            disabled={!tutorial || isSaving}
+            style={[
+              styles.iconButton,
+              { backgroundColor: colors.surface, opacity: !tutorial || isSaving ? 0.55 : 1 },
+            ]}
+            onPress={toggleSaved}>
             <Ionicons
               name={isSaved ? 'bookmark' : 'bookmark-outline'}
               size={24}

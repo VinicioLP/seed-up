@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -64,25 +65,38 @@ Historico recente:
 {$history}
 PROMPT;
 
-        $response = Http::timeout(30)
-            ->withHeaders([
-                'x-goog-api-key' => $apiKey,
-                'Content-Type' => 'application/json',
-            ])
-            ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent", [
-                'contents' => [
-                    [
-                        'role' => 'user',
-                        'parts' => [
-                            ['text' => $prompt],
+        try {
+            $response = Http::timeout(30)
+                ->connectTimeout(8)
+                ->withOptions([
+                    'curl' => [
+                        CURLOPT_PROXY => '',
+                    ],
+                ])
+                ->withHeaders([
+                    'x-goog-api-key' => $apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent", [
+                    'contents' => [
+                        [
+                            'role' => 'user',
+                            'parts' => [
+                                ['text' => $prompt],
+                            ],
                         ],
                     ],
-                ],
-                'generationConfig' => [
-                    'temperature' => 0.7,
-                    'maxOutputTokens' => 700,
-                ],
-            ]);
+                    'generationConfig' => [
+                        'temperature' => 0.7,
+                        'maxOutputTokens' => 700,
+                    ],
+                ]);
+        } catch (ConnectionException) {
+            return response()->json([
+                'message' => 'Nao foi possivel consultar o agente de IA.',
+                'details' => 'A API da IA esta indisponivel ou bloqueada pela rede no momento.',
+            ], 503);
+        }
 
         if ($response->failed()) {
             return response()->json([

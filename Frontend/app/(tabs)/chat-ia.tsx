@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/app-theme';
+import { useAuth } from '@/components/auth-context';
 import { apiFetch } from '@/lib/api';
 
 type Message = {
@@ -46,6 +48,7 @@ function serializeHistory(history: Message[]) {
 
 export default function ChatIa() {
   const { colors, isDark, toggleTheme } = useAppTheme();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -212,7 +215,13 @@ export default function ChatIa() {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.brandGroup}>
-          <Image source={require('@/assets/images/icon.png')} style={styles.avatar} />
+          <Pressable onPress={() => router.push('/profile')}>
+            <Image
+              source={user?.profilePhotoUri ? { uri: user.profilePhotoUri } : require('@/assets/images/icon.png')}
+              style={styles.avatar}
+              contentFit="cover"
+            />
+          </Pressable>
           <Text style={[styles.brand, { color: colors.tint }]}>SeedUp</Text>
         </View>
         <Pressable style={styles.themeButton} onPress={toggleTheme}>

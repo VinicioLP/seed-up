@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -23,6 +24,7 @@ import { apiFetch } from '@/lib/api';
 type CommunityPost = {
   id: string;
   author: string;
+  authorAvatarUrl?: string;
   content: string;
   imageUrls: string[];
   createdAt: string;
@@ -34,8 +36,17 @@ export default function Community() {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [isComposerVisible, setIsComposerVisible] = useState(false);
   const [isCameraVisible, setIsCameraVisible] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
   const [postText, setPostText] = useState('');
   const [photoUris, setPhotoUris] = useState<string[]>([]);
+
+  function getPostAvatarUrl(post: CommunityPost) {
+    if (post.author === user?.nickname && user?.profilePhotoUri) {
+      return user.profilePhotoUri;
+    }
+
+    return post.authorAvatarUrl;
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -104,6 +115,7 @@ export default function Community() {
         data.post ?? {
           id: Date.now().toString(),
           author: user?.nickname ?? 'Cultivador',
+          authorAvatarUrl: user?.profilePhotoUri,
           content: cleanText,
           imageUrls: photoUris,
           createdAt: 'Agora',
@@ -148,7 +160,13 @@ export default function Community() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.brandGroup}>
-            <Image source={require('@/assets/images/icon.png')} style={styles.avatar} />
+            <Pressable onPress={() => router.push('/profile')}>
+              <Image
+                source={user?.profilePhotoUri ? { uri: user.profilePhotoUri } : require('@/assets/images/icon.png')}
+                style={styles.avatar}
+                contentFit="cover"
+              />
+            </Pressable>
             <Text style={[styles.brand, { color: colors.tint }]}>SeedUp</Text>
           </View>
           <Pressable style={styles.themeButton} onPress={toggleTheme}>
@@ -185,24 +203,35 @@ export default function Community() {
         ) : null}
 
         {posts.map((post) => (
-          <View key={post.id} style={[styles.postCard, { backgroundColor: colors.surfaceStrong }]}>
+          <Pressable
+            key={post.id}
+            style={[styles.postCard, { backgroundColor: colors.surfaceStrong }]}
+            onPress={() => setSelectedPost(post)}>
             <View style={styles.postHeader}>
               <View style={[styles.postAvatar, { backgroundColor: colors.iconBox }]}>
-                <Ionicons name="leaf-outline" size={17} color={colors.tint} />
+                {getPostAvatarUrl(post) ? (
+                  <Image
+                    source={{ uri: getPostAvatarUrl(post) }}
+                    style={styles.postAvatarImage}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <Ionicons name="leaf-outline" size={17} color={colors.tint} />
+                )}
               </View>
               <Text style={[styles.postAuthor, { color: colors.text }]}>{post.author}</Text>
             </View>
 
             {post.imageUrls.length ? (
               <View style={post.imageUrls.length === 1 ? styles.singlePostImageWrap : styles.postImageGrid}>
-                {post.imageUrls.slice(0, 10).map((imageUri, index) => (
+                {post.imageUrls.slice(0, 4).map((imageUri, index) => (
                   <View
                     key={`${post.id}-${imageUri}`}
                     style={post.imageUrls.length === 1 ? styles.singlePostImageItem : styles.gridImageItem}>
                     <Image source={{ uri: imageUri }} style={styles.postImage} contentFit="cover" />
-                    {index === 9 && post.imageUrls.length > 10 ? (
+                    {index === 3 && post.imageUrls.length > 4 ? (
                       <View style={styles.moreImagesOverlay}>
-                        <Text style={styles.moreImagesText}>+{post.imageUrls.length - 10}</Text>
+                        <Text style={styles.moreImagesText}>+{post.imageUrls.length - 4}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -227,9 +256,54 @@ export default function Community() {
                 {post.content}
               </Text>
             </View>
-          </View>
+          </Pressable>
         ))}
       </ScrollView>
+
+      <Modal visible={Boolean(selectedPost)} transparent animationType="slide">
+        <View style={styles.detailOverlay}>
+          <View style={[styles.detailModal, { backgroundColor: colors.surfaceStrong }]}>
+            <View style={styles.detailHeader}>
+              <View style={styles.postHeaderCompact}>
+                <View style={[styles.postAvatar, { backgroundColor: colors.iconBox }]}>
+                  {selectedPost && getPostAvatarUrl(selectedPost) ? (
+                    <Image
+                      source={{ uri: getPostAvatarUrl(selectedPost) }}
+                      style={styles.postAvatarImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <Ionicons name="leaf-outline" size={17} color={colors.tint} />
+                  )}
+                </View>
+                <Text style={[styles.postAuthor, { color: colors.text }]}>
+                  {selectedPost?.author}
+                </Text>
+              </View>
+              <Pressable style={styles.closeButton} onPress={() => setSelectedPost(null)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailContent}>
+              {selectedPost?.imageUrls.map((imageUri) => (
+                <Image
+                  key={`${selectedPost.id}-${imageUri}`}
+                  source={{ uri: imageUri }}
+                  style={styles.detailImage}
+                  contentFit="cover"
+                />
+              ))}
+              <Text style={[styles.detailText, { color: colors.muted }]}>
+                <Text style={[styles.postAuthorInline, { color: colors.text }]}>
+                  {selectedPost?.author}{' '}
+                </Text>
+                {selectedPost?.content}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={isComposerVisible} transparent animationType="slide">
         <KeyboardAvoidingView
@@ -411,6 +485,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  postAvatarImage: {
+    width: '100%',
+    height: '100%',
   },
   postAuthor: {
     fontSize: 13,
@@ -449,6 +528,41 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: '900',
+  },
+  detailOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.38)',
+  },
+  detailModal: {
+    maxHeight: '88%',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    padding: 18,
+    gap: 12,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  postHeaderCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  detailContent: {
+    gap: 12,
+    paddingBottom: 12,
+  },
+  detailImage: {
+    width: '100%',
+    height: 280,
+    borderRadius: 16,
+  },
+  detailText: {
+    fontSize: 15,
+    lineHeight: 23,
   },
   imagePlaceholder: {
     height: 210,

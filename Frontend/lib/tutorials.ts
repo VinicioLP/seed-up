@@ -14,6 +14,7 @@ export type Tutorial = {
   materials: string[];
   steps: string[];
   tips: string[];
+  isSaved?: boolean;
 };
 
 export type TutorialInput = {
@@ -62,6 +63,18 @@ export async function fetchTutorials() {
   return data.tutorials ?? [];
 }
 
+export async function fetchSavedTutorials() {
+  const response = await apiFetch('/api/tutorials/saved');
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Nao foi possivel carregar os tutoriais salvos.'));
+  }
+
+  const data = (await response.json()) as TutorialListResponse;
+
+  return data.tutorials ?? [];
+}
+
 export async function fetchTutorial(id: string) {
   const response = await apiFetch(`/api/tutorials/${encodeURIComponent(id)}`);
 
@@ -92,6 +105,42 @@ export async function createTutorial(payload: TutorialInput) {
 
   if (!data.tutorial) {
     throw new Error('A API nao retornou o tutorial cadastrado.');
+  }
+
+  return data.tutorial;
+}
+
+export async function saveTutorial(id: string) {
+  const response = await apiFetch(`/api/tutorials/${encodeURIComponent(id)}/save`, {
+    method: 'POST',
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Nao foi possivel salvar este tutorial.'));
+  }
+
+  const data = (await response.json()) as TutorialResponse;
+
+  if (!data.tutorial) {
+    throw new Error('A API nao retornou o tutorial atualizado.');
+  }
+
+  return data.tutorial;
+}
+
+export async function unsaveTutorial(id: string) {
+  const response = await apiFetch(`/api/tutorials/${encodeURIComponent(id)}/save`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Nao foi possivel remover este tutorial dos salvos.'));
+  }
+
+  const data = (await response.json()) as TutorialResponse;
+
+  if (!data.tutorial) {
+    throw new Error('A API nao retornou o tutorial atualizado.');
   }
 
   return data.tutorial;

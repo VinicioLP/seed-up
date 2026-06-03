@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
+  KeyboardEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -54,6 +56,25 @@ export default function NewTutorial() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [keyboardPadding, setKeyboardPadding] = useState(42);
+
+  useEffect(() => {
+    function handleKeyboardShow(event: KeyboardEvent) {
+      setKeyboardPadding(event.endCoordinates.height + 42);
+    }
+
+    function handleKeyboardHide() {
+      setKeyboardPadding(42);
+    }
+
+    const showSubscription = Keyboard.addListener('keyboardDidShow', handleKeyboardShow);
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', handleKeyboardHide);
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   function updateField(field: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -107,8 +128,12 @@ export default function NewTutorial() {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.content, { paddingBottom: keyboardPadding }]}>
           <View style={styles.topBar}>
             <Pressable
               style={[styles.iconButton, { backgroundColor: colors.surface }]}

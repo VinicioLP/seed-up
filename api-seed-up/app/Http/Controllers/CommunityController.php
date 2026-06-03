@@ -12,7 +12,7 @@ class CommunityController extends Controller
     public function index(Request $request): JsonResponse
     {
         $posts = CommunityPost::query()
-            ->with('user:id,name,username')
+            ->with('user:id,name,username,avatar_path')
             ->latest()
             ->get()
             ->map(fn (CommunityPost $post) => $this->serializePost($post, $request));
@@ -40,7 +40,7 @@ class CommunityController extends Controller
             'user_id' => $request->user()->id,
             'content' => $validated['content'],
             'image_paths' => $imagePaths,
-        ])->load('user:id,name,username');
+        ])->load('user:id,name,username,avatar_path');
 
         return response()->json([
             'post' => $this->serializePost($post, $request),
@@ -52,6 +52,7 @@ class CommunityController extends Controller
         return [
             'id' => (string) $post->id,
             'author' => $post->user?->name ?? $post->user?->username ?? 'Cultivador',
+            'authorAvatarUrl' => $this->authorAvatarUrl($post, $request),
             'content' => $post->content,
             'imageUrls' => collect($post->image_paths ?? [])
                 ->map(fn (string $path) => $this->publicStorageUrl($path, $request))
@@ -64,5 +65,14 @@ class CommunityController extends Controller
     private function publicStorageUrl(string $path, Request $request): string
     {
         return $request->getSchemeAndHttpHost().Storage::url($path);
+    }
+
+    private function authorAvatarUrl(CommunityPost $post, Request $request): string
+    {
+        if ($post->user?->avatar_path) {
+            return $this->publicStorageUrl($post->user->avatar_path, $request);
+        }
+
+        return $post->user?->avatar_url ?? '';
     }
 }

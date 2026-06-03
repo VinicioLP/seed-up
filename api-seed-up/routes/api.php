@@ -20,6 +20,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/tutorials', [TutorialController::class, 'index']);
     Route::post('/tutorials', [TutorialController::class, 'store']);
+    Route::get('/tutorials/saved', [TutorialController::class, 'saved']);
+    Route::post('/tutorials/{tutorial:slug}/save', [TutorialController::class, 'save']);
+    Route::delete('/tutorials/{tutorial:slug}/save', [TutorialController::class, 'unsave']);
     Route::get('/tutorials/{tutorial:slug}', [TutorialController::class, 'show']);
 
     Route::get('/community/posts', [CommunityController::class, 'index']);

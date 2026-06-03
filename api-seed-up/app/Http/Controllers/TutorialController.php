@@ -9,22 +9,35 @@ use Illuminate\Support\Str;
 
 class TutorialController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         $tutorials = Tutorial::query()
             ->orderBy('id')
             ->get()
-            ->map(fn (Tutorial $tutorial) => $this->serializeTutorial($tutorial));
+            ->map(fn (Tutorial $tutorial) => $this->serializeTutorial($tutorial, $request));
 
         return response()->json([
             'tutorials' => $tutorials,
         ]);
     }
 
-    public function show(Tutorial $tutorial): JsonResponse
+    public function show(Request $request, Tutorial $tutorial): JsonResponse
     {
         return response()->json([
-            'tutorial' => $this->serializeTutorial($tutorial),
+            'tutorial' => $this->serializeTutorial($tutorial, $request),
+        ]);
+    }
+
+    public function saved(Request $request): JsonResponse
+    {
+        $tutorials = $request->user()
+            ->savedTutorials()
+            ->orderByDesc('saved_tutorials.created_at')
+            ->get()
+            ->map(fn (Tutorial $tutorial) => $this->serializeTutorial($tutorial, $request));
+
+        return response()->json([
+            'tutorials' => $tutorials,
         ]);
     }
 
@@ -62,8 +75,26 @@ class TutorialController extends Controller
         ]);
 
         return response()->json([
-            'tutorial' => $this->serializeTutorial($tutorial),
+            'tutorial' => $this->serializeTutorial($tutorial, $request),
         ], 201);
+    }
+
+    public function save(Request $request, Tutorial $tutorial): JsonResponse
+    {
+        $request->user()->savedTutorials()->syncWithoutDetaching([$tutorial->id]);
+
+        return response()->json([
+            'tutorial' => $this->serializeTutorial($tutorial->fresh(), $request),
+        ]);
+    }
+
+    public function unsave(Request $request, Tutorial $tutorial): JsonResponse
+    {
+        $request->user()->savedTutorials()->detach($tutorial->id);
+
+        return response()->json([
+            'tutorial' => $this->serializeTutorial($tutorial->fresh(), $request),
+        ]);
     }
 
     private function makeUniqueSlug(string $title): string
@@ -80,8 +111,10 @@ class TutorialController extends Controller
         return $slug;
     }
 
-    private function serializeTutorial(Tutorial $tutorial): array
+    private function serializeTutorial(Tutorial $tutorial, Request $request): array
     {
+        $user = $request->user();
+
         return [
             'id' => $tutorial->slug,
             'databaseId' => $tutorial->id,
@@ -96,6 +129,9 @@ class TutorialController extends Controller
             'materials' => $tutorial->materials ?? [],
             'steps' => $tutorial->steps ?? [],
             'tips' => $tutorial->tips ?? [],
+            'isSaved' => $user
+                ? $user->savedTutorials()->where('tutorials.id', $tutorial->id)->exists()
+                : false,
         ];
     }
 }

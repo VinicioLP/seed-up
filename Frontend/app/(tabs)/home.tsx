@@ -8,6 +8,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View, Platform } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/app-theme';
+import { useAuth } from '@/components/auth-context';
 import { apiFetch } from '@/lib/api';
 import { HomeMap } from '../../components/home-map';
 import { getNotificationConfig, sendNotificationAsync } from '@/lib/notifications';
@@ -115,6 +116,7 @@ async function handleSendNotification(type: 'watering' | 'harvest' | 'care_tip' 
 
 export default function Home() {
   const { colors, isDark, toggleTheme } = useAppTheme();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{ latitude?: string; longitude?: string }>();
   const [userRegion, setUserRegion] = useState<GardenRegion | null>(null);
   const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(null);
@@ -175,8 +177,8 @@ export default function Home() {
         });
 
         if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`Erro ao buscar clima: ${response.status} ${errorBody}`);
+          setWeatherInfo(null);
+          return;
         }
 
         const data = (await response.json()) as OpenWeatherResponse;
@@ -193,7 +195,7 @@ export default function Home() {
           iconUrl: data.iconUrl ?? '',
         });
       } catch (error) {
-        console.error('Erro ao carregar clima', error);
+        console.warn('Erro ao carregar clima', error instanceof Error ? error.message : error);
 
         if (isMounted) {
           setWeatherInfo(null);
@@ -260,7 +262,13 @@ export default function Home() {
         contentContainerStyle={styles.content}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.brandGroup}>
-            <Image source={require('@/assets/images/icon.png')} style={styles.avatar} />
+            <Pressable onPress={() => router.push('/profile')}>
+              <Image
+                source={user?.profilePhotoUri ? { uri: user.profilePhotoUri } : require('@/assets/images/icon.png')}
+                style={styles.avatar}
+                contentFit="cover"
+              />
+            </Pressable>
             <Text style={[styles.brand, { color: colors.tint }]}>SeedUp</Text>
           </View>
           <Pressable style={styles.themeButton} onPress={toggleTheme}>
