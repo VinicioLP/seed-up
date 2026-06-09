@@ -32,6 +32,7 @@ type WeatherInfo = {
   temperature: number;
   humidity: number;
   windSpeed: number;
+  name: string;
   iconUrl: string;
 };
 
@@ -41,6 +42,7 @@ type OpenWeatherResponse = {
   humidity?: number;
   windSpeed?: number;
   icon?: string;
+  name?: string;
   iconUrl?: string;
 };
 
@@ -133,8 +135,8 @@ export default function Home() {
         longitude: selectedLongitude,
       }
     : saoPauloRegion;
-  const weatherLocationLabel = hasSelectedPickerRegion
-    ? 'Localizacao selecionada'
+  const weatherLocationLabel = hasSelectedPickerRegion && weatherInfo
+    ?  weatherInfo.name
     : 'Sao Paulo padrao';
   const activeWeatherStats = weatherInfo
     ? [
@@ -192,6 +194,7 @@ export default function Home() {
           temperature: data.temperature ?? 0,
           humidity: data.humidity ?? 0,
           windSpeed: data.windSpeed ?? 0,
+          name: data.name ?? 'Desconhecido',
           iconUrl: data.iconUrl ?? '',
         });
       } catch (error) {
