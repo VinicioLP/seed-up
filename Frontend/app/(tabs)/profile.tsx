@@ -1,13 +1,50 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleProp,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  ViewStyle,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/app-theme';
 import { useAuth } from '@/components/auth-context';
 import { CameraCaptureModal } from '@/components/camera-capture-modal';
+
+type AnimatedActionButtonProps = PropsWithChildren<{
+  style: StyleProp<ViewStyle>;
+  onPress: () => void;
+}>;
+
+function AnimatedActionButton({ children, onPress, style }: AnimatedActionButtonProps) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  function animateScale(toValue: number) {
+    Animated.spring(scale, {
+      toValue,
+      useNativeDriver: true,
+      speed: 32,
+      bounciness: 7,
+    }).start();
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => animateScale(0.97)}
+      onPressOut={() => animateScale(1)}>
+      <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
+    </Pressable>
+  );
+}
 
 export default function Profile() {
   const { colors } = useAppTheme();
@@ -30,7 +67,7 @@ export default function Profile() {
 
     try {
       await updateNickname(cleanNickname);
-      setMessage('Apelido atualizado.');
+      setMessage('Alteracoes salvas.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Nao foi possivel salvar.');
     }
@@ -42,9 +79,15 @@ export default function Profile() {
   }
 
   async function handlePhotoCaptured(photoUri: string) {
-    await updateProfilePhoto(photoUri);
-    setMessage('Foto de perfil atualizada.');
+    try {
+      await updateProfilePhoto(photoUri);
+      setMessage('Foto de perfil atualizada.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Nao foi possivel salvar a foto.');
+    }
   }
+
+  const isSuccessMessage = message.includes('atualizad');
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
@@ -105,21 +148,25 @@ export default function Profile() {
             <Text
               style={[
                 styles.message,
-                { color: message.includes('atualizado') ? colors.tint : '#B84D3B' },
+                { color: isSuccessMessage ? colors.tint : '#B84D3B' },
               ]}>
               {message}
             </Text>
           ) : null}
 
-          <Pressable style={[styles.saveButton, { backgroundColor: colors.tint }]} onPress={handleSaveNickname}>
+          <AnimatedActionButton
+            style={[styles.saveButton, { backgroundColor: colors.tint }]}
+            onPress={handleSaveNickname}>
             <Ionicons name="save-outline" size={19} color="#FFFFFF" />
-            <Text style={styles.saveText}>Salvar apelido</Text>
-          </Pressable>
+            <Text style={styles.saveText}>Salvar Alterações</Text>
+          </AnimatedActionButton>
 
-          <Pressable style={[styles.logoutButton, { borderColor: colors.border }]} onPress={handleSignOut}>
+          <AnimatedActionButton
+            style={[styles.logoutButton, { borderColor: colors.border }]}
+            onPress={handleSignOut}>
             <Ionicons name="log-out-outline" size={20} color={colors.tint} />
             <Text style={[styles.logoutText, { color: colors.tint }]}>Sair da conta</Text>
-          </Pressable>
+          </AnimatedActionButton>
         </View>
 
         <Pressable

@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { Redirect, router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Animated,
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,43 +16,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/components/app-theme';
 import { useAuth } from '@/components/auth-context';
 
-const loginCards = [
-  {
-    title: 'Inspirar',
-    image: 'https://images.unsplash.com/photo-1515150144380-bca9f1650ed9?auto=format&fit=crop&w=500&q=80',
-  },
-  {
-    title: 'Organizar',
-    image: 'https://images.unsplash.com/photo-1459156212016-c812468e2115?auto=format&fit=crop&w=500&q=80',
-  },
-  {
-    title: 'Cultivar',
-    image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=500&q=80',
-  },
-];
-
 export default function Login() {
   const { colors } = useAppTheme();
   const { isAuthenticated, isLoading, signIn } = useAuth();
-  const [nickname, setNickname] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const nicknameFocus = useRef(new Animated.Value(0)).current;
+  const emailFocus = useRef(new Animated.Value(0)).current;
   const passwordFocus = useRef(new Animated.Value(0)).current;
-  const nicknameInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    const showSubscription = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
-    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
 
   if (!isLoading && isAuthenticated) {
     return <Redirect href="/home" />;
@@ -86,15 +58,15 @@ export default function Login() {
   }
 
   async function authenticate() {
-    const cleanNickname = nickname.trim();
+    const cleanEmail = email.trim();
 
-    if (!cleanNickname || !password) {
-      setErrorMessage('Preencha apelido e senha para continuar.');
+    if (!cleanEmail || !password) {
+      setErrorMessage('Preencha e-mail e senha para continuar.');
       return;
     }
 
-    if (cleanNickname.length < 3) {
-      setErrorMessage('Digite um apelido valido.');
+    if (!cleanEmail.includes('@')) {
+      setErrorMessage('Digite um e-mail valido.');
       return;
     }
 
@@ -106,7 +78,7 @@ export default function Login() {
     setErrorMessage('');
 
     try {
-      await signIn(cleanNickname, password);
+      await signIn(cleanEmail, password);
       router.replace('/home');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Nao foi possivel entrar.');
@@ -137,25 +109,27 @@ export default function Login() {
               </Text>
 
               <View style={styles.fieldGroup}>
-                <Text style={[styles.fieldLabel, { color: colors.text }]}>Apelido</Text>
+                <Text style={[styles.fieldLabel, { color: colors.text }]}>E-mail</Text>
                 <Animated.View
-                  onTouchEnd={() => nicknameInputRef.current?.focus()}
+                  onTouchEnd={() => emailInputRef.current?.focus()}
                   style={[
                     styles.inputBox,
                     styles.inputBoxAnimated,
                     { backgroundColor: colors.surface },
-                    animatedInputStyle(nicknameFocus),
+                    animatedInputStyle(emailFocus),
                   ]}>
-                  <Ionicons name="person-outline" size={28} color={colors.subtle} />
+                  <Ionicons name="mail-outline" size={28} color={colors.subtle} />
                   <TextInput
-                    ref={nicknameInputRef}
-                    value={nickname}
-                    onChangeText={setNickname}
-                    onFocus={() => animateFocus(nicknameFocus, 1)}
-                    onBlur={() => animateFocus(nicknameFocus, 0)}
-                    placeholder="seu apelido"
+                    ref={emailInputRef}
+                    value={email}
+                    onChangeText={setEmail}
+                    onFocus={() => animateFocus(emailFocus, 1)}
+                    onBlur={() => animateFocus(emailFocus, 0)}
+                    placeholder="seu@email.com"
                     placeholderTextColor={colors.subtle}
-                    autoCapitalize="words"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
                     style={[styles.input, { color: colors.text }]}
                   />
                 </Animated.View>
@@ -218,28 +192,6 @@ export default function Login() {
             </View>
           </View>
 
-          <View style={[styles.cardRail, isKeyboardVisible && styles.cardRailHidden]}>
-            {loginCards.map((card) => (
-              <View key={card.title} style={styles.inspirationCard}>
-                <Image source={{ uri: card.image }} style={styles.cardImage} contentFit="cover" />
-                <View style={styles.cardScrim} />
-                <View style={styles.cardPill}>
-                  <Text style={styles.cardTitle}>{card.title}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <View style={[styles.footer, isKeyboardVisible && styles.footerHidden]}>
-            <View style={styles.footerLinks}>
-              <Text style={[styles.footerLink, { color: colors.subtle }]}>Termos</Text>
-              <Text style={[styles.footerLink, { color: colors.subtle }]}>Privacidade</Text>
-              <Text style={[styles.footerLink, { color: colors.subtle }]}>Ajuda</Text>
-            </View>
-            <Text style={[styles.copy, { color: colors.subtle }]}>
-              © 2024 SeedUp App. Made with love for nature.
-            </Text>
-          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -384,65 +336,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '800',
-  },
-  cardRail: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  cardRailHidden: {
-    display: 'none',
-  },
-  inspirationCard: {
-    flex: 1,
-    height: 92,
-    borderRadius: 17,
-    overflow: 'hidden',
-    backgroundColor: '#E5E9E4',
-  },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cardScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.10)',
-  },
-  cardPill: {
-    position: 'absolute',
-    left: 8,
-    right: 8,
-    bottom: 8,
-    minHeight: 26,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(27, 35, 29, 0.34)',
-  },
-  cardTitle: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '900',
-  },
-  footer: {
-    alignItems: 'center',
-    gap: 5,
-  },
-  footerHidden: {
-    display: 'none',
-  },
-  footerLinks: {
-    flexDirection: 'row',
-    gap: 26,
-  },
-  footerLink: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  copy: {
-    fontSize: 10,
-    lineHeight: 14,
-    textAlign: 'center',
   },
 });

@@ -4,8 +4,6 @@ import { PropsWithChildren, createContext, useContext, useEffect, useMemo, useSt
 
 import { AUTH_STORAGE_KEY, apiFetch, setAuthExpiredHandler } from '@/lib/api';
 
-const USERS_STORAGE_KEY = '@seedup:users';
-
 type AuthUser = {
   id?: number;
   email: string;
@@ -30,7 +28,7 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: AuthUser | null;
-  signIn: (nickname: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, nickname: string) => Promise<void>;
   updateNickname: (nickname: string) => Promise<void>;
   updateProfilePhoto: (photoUri: string) => Promise<void>;
@@ -38,16 +36,6 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-function normalizeNickname(nickname: string) {
-  return nickname.trim().toLowerCase();
-}
-
-async function getRegisteredUsers() {
-  const storedUsers = await AsyncStorage.getItem(USERS_STORAGE_KEY);
-
-  return storedUsers ? (JSON.parse(storedUsers) as AuthUser[]) : [];
-}
 
 function normalizeApiUser(apiUser: ApiUser): AuthUser {
   return {
@@ -77,8 +65,13 @@ async function saveCurrentSession(session: AuthSession) {
   return session.user;
 }
 
-async function saveRegisteredUsers(users: AuthUser[]) {
-  await AsyncStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+async function syncStoredUser(nextUser: AuthUser) {
+  const storedSession = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+  const parsedSession = storedSession ? (JSON.parse(storedSession) as AuthSession) : null;
+
+  if (parsedSession?.token) {
+    await saveCurrentSession({ token: parsedSession.token, user: nextUser });
+  }
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -125,11 +118,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isAuthenticated: Boolean(user),
       isLoading,
       user,
-      signIn: async (nickname: string, password: string) => {
+      signIn: async (email: string, password: string) => {
         const response = await apiFetch('/api/auth/login', {
           method: 'POST',
           body: JSON.stringify({
-            nickname: nickname.trim(),
+            email: email.trim(),
             password,
           }),
         });
@@ -170,34 +163,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         const cleanNickname = nickname.trim();
-        const nicknameKey = normalizeNickname(cleanNickname);
-        const users = await getRegisteredUsers();
 
-        if (
-          users.some(
-            (registeredUser) =>
-              registeredUser.email !== user.email &&
-              normalizeNickname(registeredUser.nickname) === nicknameKey
-          )
-        ) {
-          throw new Error('Este apelido ja esta em uso.');
+        const response = await apiFetch('/api/auth/profile', {
+          method: 'POST',
+          body: JSON.stringify({
+            nickname: cleanNickname,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(await parseApiError(response, 'Nao foi possivel salvar as alteracoes.'));
         }
 
-        const nextUser = { ...user, nickname: cleanNickname };
-        const nextUsers = users.some((registeredUser) => registeredUser.email === user.email)
-          ? users.map((registeredUser) =>
-              registeredUser.email === user.email ? nextUser : registeredUser
-            )
-          : [...users, nextUser];
+        const data = (await response.json()) as { user: ApiUser };
+        const nextUser = normalizeApiUser(data.user);
 
-        await saveRegisteredUsers(nextUsers);
-        const storedSession = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-        const parsedSession = storedSession ? (JSON.parse(storedSession) as AuthSession) : null;
-
-        if (parsedSession?.token) {
-          await saveCurrentSession({ token: parsedSession.token, user: nextUser });
-        }
-
+        await syncStoredUser(nextUser);
         setUser(nextUser);
       },
       updateProfilePhoto: async (photoUri: string) => {
@@ -205,22 +186,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return;
         }
 
-        const nextUser = { ...user, profilePhotoUri: photoUri };
-        const users = await getRegisteredUsers();
-        const nextUsers = users.some((registeredUser) => registeredUser.email === user.email)
-          ? users.map((registeredUser) =>
-              registeredUser.email === user.email ? nextUser : registeredUser
-            )
-          : [...users, nextUser];
+        const formData = new FormData();
+        formData.append('avatar', {
+          uri: photoUri,
+          name: 'profile-photo.jpg',
+          type: 'image/jpeg',
+        } as any);
 
-        await saveRegisteredUsers(nextUsers);
-        const storedSession = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-        const parsedSession = storedSession ? (JSON.parse(storedSession) as AuthSession) : null;
+        const response = await apiFetch('/api/auth/profile', {
+          method: 'POST',
+          body: formData,
+        });
 
-        if (parsedSession?.token) {
-          await saveCurrentSession({ token: parsedSession.token, user: nextUser });
+        if (!response.ok) {
+          throw new Error(await parseApiError(response, 'Nao foi possivel salvar a foto.'));
         }
 
+        const data = (await response.json()) as { user: ApiUser };
+        const nextUser = normalizeApiUser(data.user);
+
+        await syncStoredUser(nextUser);
         setUser(nextUser);
       },
       signOut: async () => {
