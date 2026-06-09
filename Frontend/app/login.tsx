@@ -103,10 +103,7 @@ export default function Login() {
             </View>
 
             <View style={[styles.loginCard, { backgroundColor: colors.surfaceStrong }]}>
-              <Text style={[styles.welcomeTitle, { color: colors.text }]}>Bem-vindo de volta</Text>
-              <Text style={[styles.welcomeSubtitle, { color: colors.muted }]}>
-                Entre para gerenciar seu jardim.
-              </Text>
+              <Text style={[styles.welcomeTitle, { color: colors.text }]}>Login</Text>
 
               <View style={styles.fieldGroup}>
                 <Text style={[styles.fieldLabel, { color: colors.text }]}>E-mail</Text>

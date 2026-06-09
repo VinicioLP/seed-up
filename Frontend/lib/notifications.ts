@@ -6,7 +6,8 @@ export type NotificationType =
   | 'harvest'
   | 'care_tip'
   | 'weather_alert'
-  | 'daily_challenge';
+  | 'daily_challenge'
+  | 'community_post';
 
 export interface NotificationConfig {
   type: NotificationType;
@@ -75,6 +76,12 @@ const notificationTemplates: Record<NotificationType, () => NotificationConfig> 
       data: { category: 'daily_challenge' },
     };
   },
+  community_post: () => ({
+    type: 'community_post',
+    title: 'Postagem publicada',
+    body: 'Sua postagem ja esta na comunidade.',
+    data: { category: 'community_post' },
+  }),
 };
 
 export async function ensureNotificationChannelAsync() {
@@ -126,6 +133,19 @@ export async function sendRandomNotificationAsync() {
   const randomType = types[Math.floor(Math.random() * types.length)];
   const config = notificationTemplates[randomType]();
   await sendNotificationAsync(config);
+}
+
+export async function sendCommunityPostPublishedNotificationAsync(postId: string) {
+  await sendNotificationAsync({
+    type: 'community_post',
+    title: 'Postagem publicada',
+    body: 'Toque para ver a postagem que voce acabou de publicar.',
+    data: {
+      category: 'community_post',
+      screen: 'community',
+      postId,
+    },
+  });
 }
 
 export function getNotificationConfig(type: NotificationType): NotificationConfig {

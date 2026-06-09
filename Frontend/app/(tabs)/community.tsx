@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -20,6 +20,7 @@ import { useAppTheme } from '@/components/app-theme';
 import { useAuth } from '@/components/auth-context';
 import { CameraCaptureModal } from '@/components/camera-capture-modal';
 import { apiFetch } from '@/lib/api';
+import { sendCommunityPostPublishedNotificationAsync } from '@/lib/notifications';
 
 type CommunityPost = {
   id: string;
@@ -33,6 +34,7 @@ type CommunityPost = {
 export default function Community() {
   const { colors, isDark, toggleTheme } = useAppTheme();
   const { user } = useAuth();
+  const params = useLocalSearchParams<{ postId?: string }>();
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [isComposerVisible, setIsComposerVisible] = useState(false);
   const [isCameraVisible, setIsCameraVisible] = useState(false);
@@ -76,6 +78,18 @@ export default function Community() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!params.postId || !posts.length) {
+      return;
+    }
+
+    const notifiedPost = posts.find((post) => post.id === params.postId);
+
+    if (notifiedPost) {
+      setSelectedPost(notifiedPost);
+    }
+  }, [params.postId, posts]);
+
   const emptyMessage = useMemo(
     () => (posts.length ? '' : 'Nenhuma postagem ainda. Compartilhe a primeira ideia do seu jardim.'),
     [posts.length]
@@ -111,7 +125,7 @@ export default function Community() {
 
       const data = (await response.json()) as { post?: CommunityPost };
 
-      setPosts((currentPosts) => [
+      const createdPost =
         data.post ?? {
           id: Date.now().toString(),
           author: user?.nickname ?? 'Cultivador',
@@ -119,13 +133,14 @@ export default function Community() {
           content: cleanText,
           imageUrls: photoUris,
           createdAt: 'Agora',
-        },
-        ...currentPosts,
-      ]);
+        };
+
+      setPosts((currentPosts) => [createdPost, ...currentPosts]);
 
       setPostText('');
       setPhotoUris([]);
       setIsComposerVisible(false);
+      await sendCommunityPostPublishedNotificationAsync(createdPost.id);
     } catch (error) {
       Alert.alert(
         'Erro ao publicar',
